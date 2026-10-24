@@ -613,7 +613,7 @@ async function exportInvoice(inv,mode){
 // ---------- SKETCHES (approximate dimensioned drawings) ----------
 let LOGO_DATA="";
 (async()=>{try{const b=await (await fetch("icons/logo-word.jpg")).blob();LOGO_DATA=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(b)})}catch(e){}})();
-const SK_KINDS={table:"طاولة / مجلى ستانلس",cabinet:"خزانة ستانلس (أبواب)",hood:"شفاط (هود)",wall_shelf:"رف حيط",layout:"مخطط مطبخ (من فوق)"};
+const SK_KINDS={table:"طاولة / مجلى ستانلس",cabinet:"خزانة ستانلس (أبواب)",hood:"شفاط (هود)",wall_shelf:"رف حيط",layout:"مخطط مطبخ (من فوق)",custom:"رسمة حرة (أي شي)",plan:"مخطط مطبخ هندسي"};
 function skDefaults(){return {kind:"table",title:"طاولة ستانلس مع جرن",customer:"",length:300,depth:80,height:90,backsplash:10,undershelf:1,legs:6,doors:0,sinks:[{width:50,depth:40,bowlDepth:30}],parts:[],material:"ستانلس ستيل 304",notes:[]}}
 function skNorm(sp){
   const d=skDefaults(); const s={...d,...(sp||{})}; const n=(v,def,min,max)=>{v=+v;if(!isFinite(v)||v<=0)v=def;return Math.max(min,Math.min(max,v))};
@@ -625,6 +625,12 @@ function skNorm(sp){
   s.sinks=(Array.isArray(s.sinks)?s.sinks:[]).slice(0,6).map(k=>({width:n(k.width,50,10,s.length),depth:n(k.depth,40,10,s.depth),bowlDepth:n(k.bowlDepth,30,5,80),x:k.x===""||k.x==null||isNaN(+k.x)?null:Math.max(0,+k.x)}));
   s.parts=(Array.isArray(s.parts)?s.parts:[]).slice(0,40).map(p=>({label:String(p.label||""),x:+p.x||0,y:+p.y||0,w:n(p.w,50,1,s.length),d:n(p.d,50,1,s.depth),shape:p.shape==="circle"?"circle":"rect"}));
   s.notes=(Array.isArray(s.notes)?s.notes:String(s.notes||"").split(/\n/)).map(x=>String(x).trim()).filter(Boolean).slice(0,6);
+  if(s.kind==="plan"){ s.room={w:n((s.room||{}).w,500,50,5000),h:n((s.room||{}).h,400,50,5000)}; s.shapes=skShapesNorm(s.shapes);
+    s.legend=(Array.isArray(s.legend)?s.legend:[]).slice(0,25).map(l=>({n:String(l.n??""),label:String(l.label||"")})); }
+  if(s.kind==="custom"){ const T=SK_SHAPES;
+    s.views=(Array.isArray(s.views)?s.views:[]).slice(0,3).map(v=>({title:String(v.title||""),w:n(v.w,100,1,5000),h:n(v.h,100,1,5000),
+      shapes:skShapesNorm(v.shapes)}));
+    if(!s.views.length) s.views=[{title:"منظر من فوق",w:s.length,h:s.depth,shapes:[{t:"rect",x:0,y:0,w:s.length,h:s.depth,fill:"steel"}]}]; }
   s.title=String(s.title||SK_KINDS[s.kind]); s.customer=String(s.customer||""); s.material=String(s.material||"");
   // place sinks with no position: spread evenly
   const free=s.sinks.filter(k=>k.x==null);
@@ -648,7 +654,7 @@ function skDimV(y1,y2,x,label,ext){
   <rect x="${x-24}" y="${(y1+y2)/2-11}" width="48" height="20" fill="#fff"/><text x="${x}" y="${(y1+y2)/2+5}" text-anchor="middle">${skx(label)}</text></g>`;
 }
 function sketchSVG(spec){
-  const s=skNorm(spec); const W=1400, M=120; const st=S.settings||{};
+  const s=skNorm(spec); if(s.kind==="plan") return sketchPlanSVG(s); const W=1400, M=120; const st=S.settings||{};
   const L=s.length, D=s.depth, H=s.height, B=s.kind==="table"||s.kind==="cabinet"?s.backsplash:0;
   const twoViews=s.kind!=="layout";
   const sc=Math.min((W-2*M-60)/L, (twoViews?380:760)/D, twoViews?430/(H+B+(s.kind==="hood"?0:0)):99);
@@ -660,6 +666,7 @@ function sketchSVG(spec){
   g+=`<text x="${W-40}" y="54" fill="#fff" font-size="30" font-weight="700" text-anchor="start" direction="rtl">${skx(s.title)}</text>`;
   g+=`<text x="${W-40}" y="92" fill="#c9c9c9" font-size="19" text-anchor="start" direction="rtl">${skx([s.customer?("للزبون: "+s.customer):"",new Date().toLocaleDateString("en-GB"),"المقاسات بالسنتيمتر"].filter(Boolean).join("   ·   "))}</text>`;
   const label=(t,yy)=>`<text x="${W-M+40}" y="${yy}" font-size="20" font-weight="700" fill="#555" text-anchor="start" direction="rtl">${t}</text>`;
+  if(s.kind==="custom"){ const r=skCustomViews(s,W,M,label,y); g+=r.g; y=r.y; } else {
   // ---------- TOP VIEW ----------
   y+=46; g+=label(s.kind==="layout"?"المخطط من فوق":"منظر من فوق",y-14);
   const ty=y+40; const dh=D*sc;
@@ -714,8 +721,9 @@ function sketchSVG(spec){
     if(B>0&&s.kind!=="hood"&&s.kind!=="wall_shelf") g+=skDimV(top-B*sc,top,x0+w+40,skn(B),x0+w);
     y=floor+80;
   }
+  }
   // ---------- notes ----------
-  const notes=[s.material?`المادة: ${s.material}`:"",...(s.kind==="table"&&s.undershelf?[`رف تحتاني: ${s.undershelf}`]:[]),...(s.kind!=="layout"&&s.kind!=="hood"&&s.kind!=="wall_shelf"?[`إجرين: ${s.legs} مع رجلين قابلة للتعديل`]:[]),...s.notes].filter(Boolean);
+  const notes=[s.material?`المادة: ${s.material}`:"",...(s.kind==="table"&&s.undershelf?[`رف تحتاني: ${s.undershelf}`]:[]),...(s.kind!=="layout"&&s.kind!=="hood"&&s.kind!=="wall_shelf"&&s.kind!=="custom"?[`إجرين: ${s.legs} مع رجلين قابلة للتعديل`]:[]),...s.notes].filter(Boolean);
   y+=10; for(const t of notes){ g+=`<text x="${W-M+40}" y="${y}" font-size="19" text-anchor="start" direction="rtl">• ${skx(t)}</text>`; y+=30; }
   y+=16;
   g+=`<rect x="0" y="${y}" width="${W}" height="64" fill="#f2f2f2"/><text x="${W-40}" y="${y+40}" font-size="17" fill="#555" text-anchor="start" direction="rtl">رسمة تقريبية للتوضيح. المقاسات النهائية بتتأكد بعد الكشف.</text>`;
@@ -726,6 +734,7 @@ function sketchSVG(spec){
 <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".5" stop-color="#dfe4e8"/><stop offset="1" stop-color="#eef1f4"/></linearGradient>
 <linearGradient id="bowl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c3ccd4"/><stop offset="1" stop-color="#e7ecf0"/></linearGradient>
 <pattern id="mesh" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 8 L8 0" stroke="#999" stroke-width="1"/></pattern>
+<pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="10" fill="#fff"/><line x1="0" y1="0" x2="0" y2="10" stroke="#555" stroke-width="1.2"/></pattern>
 <style>.dim line{stroke:#c0392b;stroke-width:1.4}.dim text{fill:#c0392b;font-size:17px;font-weight:700;direction:ltr}</style></defs>
 <rect width="100%" height="100%" fill="#fff"/>${g}</svg>`;
 }
@@ -745,20 +754,138 @@ const skName=s=>"MADI-"+String(skNorm(s).title).replace(/[^\p{L}\p{N}]+/gu,"-").
 async function sketchShare(spec){ try{ shareBlob(await sketchPNG(spec),skName(spec)); }catch(e){ toast("ما زبط تحويل الرسمة لصورة"); } }
 async function sketchDownload(spec){ try{ downloadFile(skName(spec),await sketchPNG(spec)); }catch(e){ toast("ما زبط تحويل الرسمة لصورة"); } }
 
+const SK_SHAPES=["rect","circle","line","text","dim","wall","opening","door","sink","range","fryer","fridge","hood","grill","tag","leader"];
+function skShapesNorm(arr){ return (Array.isArray(arr)?arr:[]).slice(0,200).filter(p=>p&&SK_SHAPES.includes(p.t)).map(p=>({t:p.t,x:+p.x||0,y:+p.y||0,w:+p.w||0,h:+p.h||0,r:+p.r||0,x2:+p.x2||0,y2:+p.y2||0,n:Math.max(0,Math.min(12,Math.round(+p.n||0))),rot:+p.rot||0,label:String(p.label??""),dash:!!p.dash,fill:String(p.fill||""),round:+p.round||0})); }
+function skShapes(shapes,X,Y,sc,meters){
+  let g=""; const red="#b3261e";
+  const R=(x,y,w,h,extra)=>`<rect x="${X(x)}" y="${Y(y)}" width="${Math.max(1,w*sc)}" height="${Math.max(1,h*sc)}" ${extra||""}/>`;
+  const lab=(p,cx,cy,size)=>p.label?`<text x="${cx}" y="${cy}" text-anchor="middle" font-size="${size||16}" font-weight="700" fill="#1d3a57" direction="rtl">${skx(p.label)}</text>`:"";
+  for(const p of shapes){
+    const st=`stroke="${p.dash?"#1d3a57":"#222"}" stroke-width="2" ${p.dash?'stroke-dasharray="8 6"':""}`;
+    const fill=p.fill==="steel"?"url(#steel)":p.fill==="bowl"?"url(#bowl)":p.fill==="dark"?"#4a4a4a":p.fill==="glass"?"#dff0f7":p.fill==="mesh"?"url(#mesh)":(p.fill==="none"||p.dash||p.t==="line")?"none":"#f7f9fb";
+    const cx=X(p.x+p.w/2), cy=Y(p.y+p.h/2);
+    switch(p.t){
+    case "rect": g+=R(p.x,p.y,p.w,p.h,`rx="${p.round*sc}" fill="${fill}" ${st}`)+lab(p,cx,cy+6); break;
+    case "circle": g+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${Math.max(2,p.r*sc)}" fill="${fill}" ${st}/>`+lab(p,X(p.x),Y(p.y)+6,15); break;
+    case "line": g+=`<line x1="${X(p.x)}" y1="${Y(p.y)}" x2="${X(p.x2)}" y2="${Y(p.y2)}" ${st}/>`; break;
+    case "text": g+=`<text x="${X(p.x)}" y="${Y(p.y)}" text-anchor="middle" font-size="16" fill="#333" direction="rtl">${skx(p.label)}</text>`; break;
+    case "dim": { const L=p.label||(meters?(Math.hypot(p.x2-p.x,p.y2-p.y)/100).toFixed(2):skn(Math.hypot(p.x2-p.x,p.y2-p.y)));
+      if(Math.abs(p.y2-p.y)<=Math.abs(p.x2-p.x)) g+=skDimH(X(Math.min(p.x,p.x2)),X(Math.max(p.x,p.x2)),Y(p.y),L); else g+=skDimV(Y(Math.min(p.y,p.y2)),Y(Math.max(p.y,p.y2)),X(p.x),L); break; }
+    case "wall": g+=R(p.x,p.y,p.w,p.h,`fill="url(#hatch)" stroke="#333" stroke-width="1.6"`); break;
+    case "opening": { const hor=p.w>=p.h; g+=R(p.x,p.y,p.w,p.h,`fill="#fff" stroke="none"`);
+      g+=hor?`<line x1="${X(p.x)}" y1="${Y(p.y)}" x2="${X(p.x+p.w)}" y2="${Y(p.y)}" stroke="#2e9b4f" stroke-width="2" stroke-dasharray="14 8"/><line x1="${X(p.x)}" y1="${Y(p.y+p.h)}" x2="${X(p.x+p.w)}" y2="${Y(p.y+p.h)}" stroke="#2e9b4f" stroke-width="2" stroke-dasharray="14 8"/>`
+            :`<line x1="${X(p.x)}" y1="${Y(p.y)}" x2="${X(p.x)}" y2="${Y(p.y+p.h)}" stroke="#2e9b4f" stroke-width="2" stroke-dasharray="14 8"/><line x1="${X(p.x+p.w)}" y1="${Y(p.y)}" x2="${X(p.x+p.w)}" y2="${Y(p.y+p.h)}" stroke="#2e9b4f" stroke-width="2" stroke-dasharray="14 8"/>`; break; }
+    case "door": { const W=(p.w||90)*sc; g+=`<g transform="translate(${X(p.x)} ${Y(p.y)}) rotate(${p.rot})"><line x1="0" y1="0" x2="0" y2="${-W}" stroke="#222" stroke-width="2.5"/><path d="M${W} 0 A${W} ${W} 0 0 0 0 ${-W}" fill="none" stroke="#222" stroke-width="1.5"/></g>`; break; }
+    case "sink": { const m=Math.min(p.w,p.h)*0.15; g+=R(p.x,p.y,p.w,p.h,`fill="url(#steel)" stroke="${red}" stroke-width="1.8"`)+R(p.x+m,p.y+m,p.w-2*m,p.h-2*m,`rx="${4*sc}" fill="url(#bowl)" stroke="#222" stroke-width="1.6"`);
+      g+=`<circle cx="${cx}" cy="${cy}" r="${Math.max(3,2.5*sc)}" fill="#fff" stroke="#222"/><circle cx="${X(p.x+m*0.6)}" cy="${Y(p.y+m*0.6)}" r="${Math.max(2,1.5*sc)}" fill="none" stroke="#222"/>`; break; }
+    case "range": { const nb=p.n||4, cols=Math.ceil(nb/2), rows=nb>1?2:1; g+=R(p.x,p.y,p.w,p.h,`fill="#f2f2f2" stroke="${red}" stroke-width="1.8"`);
+      const bw=p.w/cols, bh=p.h/rows, rr=Math.min(bw,bh)*0.32;
+      for(let i=0;i<nb;i++){ const c=i%cols, r=Math.floor(i/cols), ox=X(p.x+bw*(c+0.5)), oy=Y(p.y+bh*(r+0.5));
+        g+=R(p.x+bw*c+bw*0.08,p.y+bh*r+bh*0.08,bw*0.84,bh*0.84,`fill="none" stroke="#222" stroke-width="1.4"`)+`<circle cx="${ox}" cy="${oy}" r="${rr*sc}" fill="none" stroke="#222" stroke-width="1.6"/><line x1="${ox-rr*sc*1.3}" y1="${oy}" x2="${ox+rr*sc*1.3}" y2="${oy}" stroke="#222"/><line x1="${ox}" y1="${oy-rr*sc*1.3}" x2="${ox}" y2="${oy+rr*sc*1.3}" stroke="#222"/>`; } break; }
+    case "fryer": { const nb=p.n||2; g+=R(p.x,p.y,p.w,p.h,`fill="#f2f2f2" stroke="${red}" stroke-width="2"`); const hor=p.w>=p.h;
+      for(let i=0;i<nb;i++){ const bx=hor?p.x+p.w*i/nb:p.x, by=hor?p.y:p.y+p.h*i/nb, bw=hor?p.w/nb:p.w, bh=hor?p.h:p.h/nb; g+=R(bx+bw*0.1,by+bh*0.12,bw*0.8,bh*0.76,`fill="url(#mesh)" stroke="${red}" stroke-width="2"`); } break; }
+    case "grill": g+=R(p.x,p.y,p.w,p.h,`fill="url(#mesh)" stroke="${red}" stroke-width="2"`)+lab(p,cx,cy+6); break;
+    case "fridge": g+=R(p.x,p.y,p.w,p.h,`fill="#fff" stroke="${red}" stroke-width="1.8"`)+`<line x1="${X(p.x)}" y1="${Y(p.y+p.h)}" x2="${X(p.x+p.w)}" y2="${Y(p.y)}" stroke="#222" stroke-width="1.5"/>`+lab(p,cx,cy+6); break;
+    case "hood": { const m=Math.min(p.w,p.h)*0.25; g+=R(p.x,p.y,p.w,p.h,`fill="none" stroke="#222" stroke-width="1.6" stroke-dasharray="12 8"`)+R(p.x+m,p.y+m,p.w-2*m,p.h-2*m,`fill="none" stroke="#222" stroke-width="1.2" stroke-dasharray="12 8"`);
+      for(const [a,b,c,d] of [[p.x,p.y,p.x+m,p.y+m],[p.x+p.w,p.y,p.x+p.w-m,p.y+m],[p.x,p.y+p.h,p.x+m,p.y+p.h-m],[p.x+p.w,p.y+p.h,p.x+p.w-m,p.y+p.h-m]]) g+=`<line x1="${X(a)}" y1="${Y(b)}" x2="${X(c)}" y2="${Y(d)}" stroke="#222" stroke-width="1.2"/>`; break; }
+    case "tag": g+=`<text x="${X(p.x)}" y="${Y(p.y)}" text-anchor="middle" dominant-baseline="middle" font-size="26" fill="#111" direction="ltr">${skx(p.label)}</text>`; break;
+    case "leader": { const ex=X(p.x2), ey=Y(p.y2); g+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="6" fill="#fff" stroke="#222" stroke-width="1.5"/><line x1="${X(p.x)}" y1="${Y(p.y)}" x2="${ex}" y2="${ey}" stroke="#222" stroke-width="1.2"/><line x1="${ex}" y1="${ey}" x2="${ex+190}" y2="${ey}" stroke="#222" stroke-width="1.2"/><text x="${ex+4}" y="${ey-6}" font-size="13" fill="#111" direction="ltr">${skx(p.label)}</text>`; break; }
+    }
+  }
+  return g;
+}
+const SK_DEFS=`<marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="#c0392b"/></marker>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".5" stop-color="#dfe4e8"/><stop offset="1" stop-color="#eef1f4"/></linearGradient>
+<linearGradient id="bowl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c3ccd4"/><stop offset="1" stop-color="#e7ecf0"/></linearGradient>
+<pattern id="mesh" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 8 L8 0" stroke="#999" stroke-width="1"/></pattern>
+<pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="10" fill="#fff"/><line x1="0" y1="0" x2="0" y2="10" stroke="#555" stroke-width="1.2"/></pattern>`;
+function sketchPlanSVG(s){
+  const st=S.settings||{}; const W=1600, H=1130, TB=300; const ax=60, ay=60, aw=W-TB-120, ah=H-120;
+  const pad=70; const sc=Math.min((aw-2*pad)/s.room.w,(ah-2*pad)/s.room.h); const x0=ax+(aw-s.room.w*sc)/2, y0=ay+(ah-s.room.h*sc)/2;
+  const X=a=>x0+a*sc, Y=a=>y0+a*sc;
+  let g=`<rect x="30" y="30" width="${W-60}" height="${H-60}" fill="none" stroke="#222" stroke-width="2"/><line x1="${W-TB}" y1="30" x2="${W-TB}" y2="${H-30}" stroke="#222" stroke-width="2"/>`;
+  if(!s.shapes.some(p=>p.t==="wall")){ const t=20; g+=skShapes([{t:"wall",x:-t,y:-t,w:s.room.w+2*t,h:t},{t:"wall",x:-t,y:s.room.h,w:s.room.w+2*t,h:t},{t:"wall",x:-t,y:0,w:t,h:s.room.h},{t:"wall",x:s.room.w,y:0,w:t,h:s.room.h}].map(p=>({...p,r:0,x2:0,y2:0,n:0,rot:0,label:"",dash:false,fill:"",round:0})),X,Y,sc,true); }
+  g=`<g clip-path="url(#planclip)">${g.replace(/^<rect x="30"[^>]*\/><line[^>]*\/>/,"")}${skShapes(s.shapes,X,Y,sc,true)}</g><rect x="30" y="30" width="${W-60}" height="${H-60}" fill="none" stroke="#222" stroke-width="2"/><line x1="${W-TB}" y1="30" x2="${W-TB}" y2="${H-30}" stroke="#222" stroke-width="2"/>`;
+  const tx=W-TB+24; let ty=110;
+  g+=`<text x="${tx}" y="${ty}" font-size="${String(s.title||"KITCHEN LAYOUT").length>14?22:26}" fill="#a020a0" direction="ltr">${skx(String(s.title||"KITCHEN LAYOUT").toUpperCase())}</text>`; ty+=50;
+  if(s.customer) { g+=`<text x="${tx}" y="${ty}" font-size="22" fill="#a020a0" direction="${hasAr(s.customer)?"rtl":"ltr"}" ${hasAr(s.customer)?`text-anchor="start" x="${W-60}"`:""}>${skx(s.customer)}</text>`; ty+=40; }
+  g+=`<text x="${tx}" y="${ty}" font-size="16" fill="#666" direction="ltr">${new Date().toLocaleDateString("en-GB")} · dimensions in m</text>`; ty+=50;
+  for(const l of s.legend){ if(ty>H-200) break; g+=`<text x="${tx}" y="${ty}" font-size="18" font-weight="700" fill="#111" direction="ltr">${skx(l.n)}</text><text x="${W-50}" y="${ty}" font-size="17" fill="#222" text-anchor="start" direction="rtl">${skx(l.label)}</text>`; ty+=32; }
+  for(const [i,t] of (s.notes||[]).entries()){ if(ty>H-200) break; g+=`<text x="${W-50}" y="${ty+10}" font-size="15" fill="#555" text-anchor="start" direction="rtl">• ${skx(t)}</text>`; ty+=26; }
+  g+=LOGO_DATA?`<image href="${LOGO_DATA}" x="${W-TB+30}" y="${H-170}" width="${TB-60}" height="76" preserveAspectRatio="xMidYMid meet"/>`:"";
+  g+=`<text x="${W-TB/2-15}" y="${H-60}" font-size="13" fill="#555" text-anchor="middle" direction="ltr">${skx([st.phone,st.website].filter(Boolean).join(" · "))}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Arial, Tahoma, sans-serif" font-size="18" fill="#111">
+<defs><clipPath id="planclip"><rect x="31" y="31" width="${W-TB-32}" height="${H-62}"/></clipPath>${SK_DEFS.replace('fill="#c0392b"','fill="#1f6fd1"')}<style>.dim line{stroke:#1f6fd1;stroke-width:1.4;stroke-dasharray:10 6}.dim text{fill:#1f6fd1;font-size:20px;direction:ltr}</style></defs>
+<rect width="100%" height="100%" fill="#fff"/>${g}</svg>`;
+}
+
+function skCustomViews(s,W,M,label,y){
+  let g="";
+  for(const v of s.views){
+    y+=46; g+=label(skx(v.title||""),y-14);
+    const sc=Math.min((W-2*M-80)/v.w,520/v.h), vw=v.w*sc, vh=v.h*sc, x0=(W-vw)/2, ty=y+40;
+    const X=a=>x0+a*sc, Y=a=>ty+a*sc;
+    g+=skShapes(v.shapes,X,Y,sc,false);
+    g+=skDimH(x0,x0+vw,ty+vh+34,skn(v.w),ty+vh,ty+vh);
+    g+=skDimV(ty,ty+vh,x0+vw+40,skn(v.h),x0+vw);
+    y=ty+vh+70;
+  }
+  return {g,y};
+}
+// understands simple Arabic descriptions instantly, without the AI
+function parseSketchText(txt){
+  let t=String(txt||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[،,]/g," ");
+  t=normAr(t).replace(/متر ونص/g,"1.5 متر").replace(/مترين/g,"2 متر").replace(/(\d)\s*[x×*]\s*(\d)/g,"$1 ب $2").replace(/\s+/g," ");
+  const sp=skDefaults(); sp.sinks=[]; sp.notes=[]; let ok=false;
+  if(/شفاط|هود|hood/.test(t)) sp.kind="hood"; else if(/رف (حيط|عالحيط|على الحيط)|رفوف (حيط|عالحيط)/.test(t)) sp.kind="wall_shelf"; else if(/خزان|ابواب|باب/.test(t)) sp.kind="cabinet";
+  const cm=(v,u,small)=>{v=parseFloat(v); if(/^(م|متر|امتار|m)$/.test(u||"")||(!u&&v<=small)) return Math.round(v*100); return v;};
+  const re=/(\d+(?:\.\d+)?)\s*(متر|امتار|م|سم|سنتي|cm|m)?\s*(?:عرض\s*)?(?:بـ?|على)\s*(\d+(?:\.\d+)?)\s*(متر|امتار|م|سم|cm|m)?/g; let m, main=null; const sinkPairs=[];
+  while((m=re.exec(t))){ const before=t.slice(Math.max(0,m.index-22),m.index);
+    if(/جرن|حوض|جران|احواض/.test(before)) sinkPairs.push({w:cm(m[1],m[2],2),d:cm(m[3],m[4],2),pos:t.slice(m.index,m.index+60)});
+    else if(!main) main={l:cm(m[1],m[2],6),d:cm(m[3],m[4],3)}; }
+  if(main){ sp.length=main.l; sp.depth=main.d; ok=true; }
+  else { const lm=t.match(/(?:طول\s*)?(\d+(?:\.\d+)?)\s*(متر|امتار|م|سم)(?=\s|$)/); if(lm){ sp.length=cm(lm[1],lm[2],6); ok=true; }
+    const wm=t.match(/عرض\s*(\d+(?:\.\d+)?)/)||t.match(/(\d+(?:\.\d+)?)\s*(?:سم\s*)?عرض/); if(wm) sp.depth=cm(wm[1],"",3); }
+  const num=(r)=>{const x=t.match(r);return x?parseFloat(x[1]):null};
+  const hh=num(/(?:ارتفاع|علو)\s*(\d+(?:\.\d+)?)/); if(hh) sp.height=cm(hh,"",3);
+  if(/(بلا|بدون|من دون) ظهر/.test(t)) sp.backsplash=0; else { const b=num(/ظهر\s*(\d+)/); if(b!=null) sp.backsplash=b; }
+  if(/(بلا|بدون|من دون) رف/.test(t)) sp.undershelf=0; else if(/رفين|2 رف/.test(t)) sp.undershelf=2; else if(/3 رفوف|تلات رفوف|ثلاث رفوف/.test(t)) sp.undershelf=3; else if(/رف/.test(t)) sp.undershelf=1; else if(sp.kind==="table") sp.undershelf=1;
+  const lg=num(/(\d+)\s*(?:اجر|ارجل|رجل)/); if(lg) sp.legs=lg;
+  const dr=num(/(\d+)\s*(?:باب|ابواب)/); if(dr) sp.doors=dr; else if(sp.kind==="cabinet") sp.doors=/بابين/.test(t)?2:Math.max(2,Math.round(sp.length/60));
+  const bowl=num(/عمق\s*(\d+)/);
+  let count=/(3|تلات|ثلاث) (جران|احواض)/.test(t)?3:/جرنين|حوضين|2 (جرن|جران|حوض)/.test(t)?2:(/جرن|حوض|مجلي/.test(t)?1:0);
+  if(sp.kind==="hood"||sp.kind==="wall_shelf") count=0;
+  for(const p of sinkPairs){ const k={width:p.w,depth:p.d,bowlDepth:bowl||30,x:null};
+    if(/شمال|يسار/.test(p.pos)) k.x=15; else if(/يمين/.test(p.pos)) k.x=Math.max(0,sp.length-p.w-15); sp.sinks.push(k); }
+  while(sp.sinks.length<count) sp.sinks.push({...(sp.sinks[0]||{width:50,depth:40,bowlDepth:bowl||30}),x:null});
+  if(!sp.sinks.length&&/(^|\s)(شمال|يسار)/.test(t)===false) {}
+  if(sp.kind==="hood"){ sp.height=hh?sp.height:60; sp.backsplash=0; }
+  if(sp.kind==="wall_shelf"){ sp.depth=main?sp.depth:30; sp.height=hh?sp.height:40; }
+  const nm={table:sp.sinks.length?"مجلى ستانلس":"طاولة ستانلس",cabinet:"خزانة ستانلس",hood:"شفاط ستانلس",wall_shelf:"رف حيط ستانلس"}[sp.kind];
+  sp.title=`${nm} ${sp.length}×${sp.depth}`+(sp.sinks.length?` · ${sp.sinks.length===1?"جرن":sp.sinks.length+" جران"}`:"");
+  return {ok,spec:sp};
+}
+const aiReady=()=>!!(Store.sb&&navigator.onLine);
+
 // ---------- SKETCH VIEW ----------
-const SK={spec:null,id:null,busy:false,desc:""};
+const SK={spec:null,id:null,busy:false,desc:"",note:"",status:"",showForm:false};
 function vSketch(){
   if(!SK.spec) SK.spec=skDefaults();
   const s=SK.spec; const list=(S.sketches||[]).slice().sort((a,b)=>String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
   const num=(k,l,v)=>`<label class="f"><span>${l}</span><input type="number" step="any" min="0" class="num" data-sk="${k}" value="${v??""}"></label>`;
-  return `<div class="head"><div><h1>الرسومات</h1><p class="sub">اكتب وصف الشغلة والمساعد بيرسمها بالمقاسات، أو عبّي المقاسات بإيدك. بعدين ابعتها للزبون صورة.</p></div>
+  return `<div class="head"><div><h1>الرسومات</h1><p class="sub">اكتب شو بدّو الزبون واكبس ارسم. الرسمة بتطلع فورًا، والمساعد بيحسّنها إذا في إنترنت.</p></div>
    <div class="row"><button class="btn" id="sknew">رسمة جديدة</button></div></div>
   <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px">
-   <label class="f"><span>الوصف (بالعربي متل ما الزبون حكاه)</span><textarea id="skdesc" rows="2" placeholder="مثلا: طاولة 3 متر بـ 80 عرض، فيها جرن 50 ب 40 عالشمال، ظهر 10 سم ورف تحت">${esc(SK.desc)}</textarea></label>
-   <div class="row"><button class="btn pri" id="skai" ${SK.busy?"disabled":""}>${SK.busy?"عم يرسم…":"ارسم بالمساعد"}</button><span class="muted" style="font-size:13px">بعد الرسمة فيك تعدّل أي رقم تحت.</span></div>
+   <label class="f"><span>الوصف (متل ما الزبون حكاه)</span><textarea id="skdesc" rows="3" placeholder="مثلا: طاولة 3 امتار ب 80 عرض وبقلبها جرن 50 ب 40، ظهر 10 ورف تحت. أو أي شي تاني: طاولة L، عربية، براد، فرن...">${esc(SK.desc)}</textarea></label>
+   <div class="row"><button class="btn pri" id="skai">ارسم</button>${SK.busy?`<span class="muted" style="font-size:13px" id="skstatus">${esc(SK.status||"المساعد عم يحسّن الرسمة…")}</span>`:`<span class="muted" style="font-size:13px">${esc(SK.note||"")}</span>`}</div>
   </div>
-  <div class="sk-grid">
-   <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:12px">
+  <div class="card" style="padding:12px;display:flex;flex-direction:column;gap:10px">
+   <div class="sk-prev" id="skprev">${sketchSVG(s)}</div>
+   <div class="row"><button class="btn pri" id="skshare">ابعت الرسمة للزبون</button><button class="btn" id="skdl">نزّل صورة</button><button class="btn" id="sksave" ${S.canWrite?"":"disabled"}>حفظ</button></div>
+  </div>
+  <details class="card" id="skform" style="padding:14px" ${SK.showForm?"open":""}><summary style="cursor:pointer;font-weight:700">عدّل المقاسات بإيدك</summary>
+   <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+    ${s.kind==="custom"||s.kind==="plan"?`<div class="muted" style="font-size:13px">هيدي رسمة حرة. لتغيّرها، عدّل الوصف فوق واكبس ارسم.</div><div class="fgrid"><label class="f"><span>العنوان</span><input type="text" data-sk="title" value="${esc(s.title)}"></label><label class="f"><span>الزبون</span><input type="text" data-sk="customer" value="${esc(s.customer||"")}"></label><label class="f"><span>المادة</span><input type="text" data-sk="material" value="${esc(s.material||"")}"></label></div>`:`
     <div class="fgrid">
      <label class="f"><span>النوع</span><select data-sk="kind">${Object.entries(SK_KINDS).map(([k,l])=>`<option value="${k}" ${s.kind===k?"selected":""}>${l}</option>`).join("")}</select></label>
      <label class="f"><span>العنوان</span><input type="text" data-sk="title" value="${esc(s.title)}"></label>
@@ -779,11 +906,10 @@ function vSketch(){
        <button class="x" data-skdel="${i}" aria-label="احذف الجرن">×</button></div>`).join("")}
      <div class="muted" style="font-size:12px;margin-top:4px">طول × عرض × عمق، وبعدو عن طرف الطاولة الشمال (خليه فاضي ليتوزّع لحالو)</div>
      <button class="btn sm" id="skaddsink" style="margin-top:6px">+ جرن</button></div>`:""}
+`}
     <label class="f"><span>ملاحظات (كل سطر لحال)</span><textarea data-sk="notes" rows="3">${esc((s.notes||[]).join("\n"))}</textarea></label>
-    <div class="row"><button class="btn pri" id="sksave" ${S.canWrite?"":"disabled"}>حفظ</button><button class="btn" id="skshare">شارك صورة</button><button class="btn" id="skdl">نزّل PNG</button></div>
    </div>
-   <div class="card sk-prev" id="skprev">${sketchSVG(s)}</div>
-  </div>
+  </details>
   ${list.length?`<div class="card"><div class="ch"><h2>رسومات محفوظة</h2></div><div class="scroll"><table><tbody>${list.map(k=>`<tr class="click" data-skopen="${k.id}"><td>${esc(k.title||"")}</td><td class="muted">${esc(k.customer||"")}</td><td class="num muted">${esc(String(k.updatedAt||"").slice(0,10))}</td><td class="del"><button class="x" data-skrm="${k.id}" aria-label="احذف">×</button></td></tr>`).join("")}</tbody></table></div></div>`:""}`;
 }
 function skReadForm(){
@@ -803,10 +929,14 @@ function bindSketch(){
   $("#skdl").onclick=()=>{skReadForm();sketchDownload(SK.spec)};
   $("#sksave").onclick=async()=>{skReadForm(); const s=skNorm(SK.spec); SK.id=SK.id||uid();
     if(await save("sketches",{id:SK.id,title:s.title,customer:s.customer,spec:SK.spec})) toast("انحفظت الرسمة");};
+  $("#skform")&&($("#skform").ontoggle=e=>{SK.showForm=e.target.open});
   $("#skai").onclick=async()=>{ const d=$("#skdesc").value.trim(); if(!d){toast("اكتب وصف أول");return}
-    SK.busy=true; render();
-    try{ const spec=await aiSketch(d); SK.spec=spec; SK.id=null; toast("جاهزة. راجع المقاسات."); }
-    catch(e){ toast(aiErrMsg(e)); }
+    SK.desc=d; const loc=parseSketchText(d); SK.note="";
+    if(loc.ok){ SK.spec=loc.spec; SK.id=null; }
+    if(!aiReady()){ SK.note=loc.ok?"رسمتها من الوصف مباشرة.":"ما فهمت المقاسات. اكتبها متل: طاولة 3 متر ب 80، جرن 50 ب 40"; render(); return; }
+    SK.busy=true; SK.status=loc.ok?"رسمتها. المساعد عم يحسّنها…":"المساعد عم يرسم…"; render();
+    try{ const spec=await aiSketch(d); SK.spec=spec; SK.id=null; SK.note="المساعد رسمها. فيك تعدّل المقاسات تحت."; }
+    catch(e){ SK.note=loc.ok?"هيدي الرسمة من الوصف مباشرة (المساعد ما ردّ: "+aiErrMsg(e)+")":aiErrMsg(e); }
     SK.busy=false; render(); };
   document.querySelectorAll("[data-skopen]").forEach(r=>r.onclick=e=>{ if(e.target.closest("[data-skrm]")) return; const k=(S.sketches||[]).find(x=>x.id===r.dataset.skopen); if(k){SK.spec=JSON.parse(JSON.stringify(k.spec||skDefaults()));SK.id=k.id;render();window.scrollTo(0,0)} });
   document.querySelectorAll("[data-skrm]").forEach(b=>b.onclick=async e=>{e.stopPropagation(); if(await remove("sketches",b.dataset.skrm)) toast("انحذفت الرسمة")});
@@ -910,7 +1040,7 @@ function aiRules(){
 
 // ---------- AI: drawing tool + server call ----------
 const SKETCH_SCHEMA={type:"object",properties:{
-  kind:{type:"string",enum:["table","cabinet","hood","wall_shelf","layout"],description:"table = طاولة أو مجلى ستانلس (مع أو بلا جران)، cabinet = خزانة بأبواب، hood = شفاط، wall_shelf = رف حيط، layout = مخطط مطبخ من فوق لأي شي تاني"},
+  kind:{type:"string",enum:["table","cabinet","hood","wall_shelf","layout","custom","plan"],description:"table = طاولة أو مجلى ستانلس (مع أو بلا جران)، cabinet = خزانة بأبواب، hood = شفاط، wall_shelf = رف حيط، layout = مخطط مطبخ من فوق لأي شي تاني"},
   title:{type:"string",description:"عنوان قصير بالعربي، مثلا: طاولة ستانلس 300 مع جرن"},
   customer:{type:"string"},
   length:{type:"number",description:"الطول بالسنتيمتر (3 متر = 300)"},
@@ -922,10 +1052,16 @@ const SKETCH_SCHEMA={type:"object",properties:{
   doors:{type:"integer",description:"عدد الأبواب للخزانة"},
   sinks:{type:"array",items:{type:"object",properties:{width:{type:"number",description:"طول الجرن على طول الطاولة"},depth:{type:"number",description:"عرض الجرن من قدّام لورا"},bowlDepth:{type:"number",description:"عمق الجرن لتحت، افتراضي 30"},x:{type:"number",description:"بعد الجرن عن طرف الطاولة الشمال. اتركه إذا الزبون ما حدد"}},required:["width","depth"]}},
   parts:{type:"array",description:"للـ layout بس: قطع من فوق. x,y من الزاوية الشمال الورا",items:{type:"object",properties:{label:{type:"string"},x:{type:"number"},y:{type:"number"},w:{type:"number"},d:{type:"number"},shape:{type:"string",enum:["rect","circle"]}},required:["label","x","y","w","d"]}},
+  views:{type:"array",description:"لـ kind=custom بس: 1 لـ 3 مناظر (من فوق، من قدّام، من جنب). كل الأرقام بالسنتيمتر. (0,0) الزاوية الشمال فوق.",items:{type:"object",properties:{
+    title:{type:"string",description:"مثلا: منظر من فوق"},w:{type:"number",description:"عرض المنظر بالسم"},h:{type:"number",description:"طول المنظر بالسم"},
+    shapes:{type:"array",items:{type:"object",properties:{t:{type:"string",enum:SK_SHAPES,description:"rect/circle/line/text/dim أشكال عامة. للمخطط: wall حيط مخطط، opening فتحة باب أو شباك، door باب بقوس (x,y المفصلة، w العرض، rot 0/90/180/270)، sink مجلى، range غاز بحراقات (n عددها)، fryer قلاية (n أحواض)، grill شواية، fridge براد، hood شفاط، tag رقم القطعة، leader علامة مع خط وكتابة (x,y النقطة و x2,y2 آخر الخط)"},x:{type:"number"},y:{type:"number"},w:{type:"number"},h:{type:"number"},r:{type:"number"},x2:{type:"number"},y2:{type:"number"},n:{type:"integer"},rot:{type:"number"},label:{type:"string"},dash:{type:"boolean"},fill:{type:"string",enum:["steel","bowl","glass","dark","mesh","none","plain"]},round:{type:"number"}},required:["t","x","y"]}}},required:["w","h","shapes"]}},
+  room:{type:"object",description:"لـ kind=plan بس: قياس الغرفة من جوّا بالسم",properties:{w:{type:"number"},h:{type:"number"}},required:["w","h"]},
+  shapes:{type:"array",description:"لـ kind=plan بس: كل شي جوّا المخطط، بالسم، (0,0) زاوية الغرفة الشمال فوق من جوّا. الحيطان برّا الغرفة (مثلا x=-20). المقاسات dim بيطلعو بالمتر لحالن.",items:{type:"object",properties:{t:{type:"string",enum:SK_SHAPES,description:"rect/circle/line/text/dim أشكال عامة. للمخطط: wall حيط مخطط، opening فتحة باب أو شباك، door باب بقوس (x,y المفصلة، w العرض، rot 0/90/180/270)، sink مجلى، range غاز بحراقات (n عددها)، fryer قلاية (n أحواض)، grill شواية، fridge براد، hood شفاط، tag رقم القطعة، leader علامة مع خط وكتابة (x,y النقطة و x2,y2 آخر الخط)"},x:{type:"number"},y:{type:"number"},w:{type:"number"},h:{type:"number"},r:{type:"number"},x2:{type:"number"},y2:{type:"number"},n:{type:"integer"},rot:{type:"number"},label:{type:"string"},dash:{type:"boolean"},fill:{type:"string",enum:["steel","bowl","glass","dark","mesh","none","plain"]},round:{type:"number"}},required:["t","x","y"]}},
+  legend:{type:"array",description:"لـ kind=plan: شرح الأرقام",items:{type:"object",properties:{n:{type:"string"},label:{type:"string"}},required:["n","label"]}},
   material:{type:"string",description:"افتراضي: ستانلس ستيل 304"},
   notes:{type:"array",items:{type:"string"},description:"ملاحظات قصيرة بالعربي بتنطبع عالرسمة (حنفية، فتحة تصريف، عجلات...)"}
 },required:["kind","title","length","depth"]};
-AI_TOOLS.push({name:"draw_sketch",description:"بيعمل رسمة تقريبية بالمقاسات (منظر من فوق ومنظر من قدّام) لطاولة، مجلى، خزانة، شفاط، رف، أو مخطط مطبخ، لتنبعت للزبون صورة. استعملها كل ما حدا طلب رسمة أو وصف قطعة بمقاسات. حوّل المتر لسنتيمتر.",
+AI_TOOLS.push({name:"draw_sketch",description:"بيعمل رسمة تقريبية بالمقاسات لتنبعت للزبون صورة. استعملها كل ما حدا طلب رسمة أو وصف قطعة بمقاسات. حوّل المتر لسنتيمتر. للطاولة أو المجلى العادي استعمل table، للخزانة cabinet، للشفاط hood، لرف الحيط wall_shelf. لمخطط مطبخ أو مطعم كامل (غرفة بحيطانها وأبوابها والمعدات بمحلاتها، متل رسمة الأوتوكاد) استعمل plan: room للقياس، shapes للحيطان والفتحات والمعدات (range, fryer, sink, fridge, hood, grill, rect للطاولات)، tag لرقم كل قطعة، dim للمقاسات، leader لنقاط الغاز والمي، و legend لشرح الأرقام. لأي شي تاني (طاولة L، مجلى مع مصفاية، عربية، براد، فرن، فريزر، بنك، كاونتر، تصميم خاص) استعمل custom وارسم المناظر بـ views من أشكال بسيطة: rect للجسم والأبواب والجران، circle للحراقات والتصريف، line، text، و dim للمقاسات المهمة. خلّي الرسمة واضحة ونضيفة، 10 لـ 40 شكل لكل منظر.",
   inputSchema:SKETCH_SCHEMA, execute:(i)=>{ AI.sketch=skNorm(i); AI.setStatus("عم ارسم"); return {ok:true,shown_to_user:true,length:AI.sketch.length,depth:AI.sketch.depth,sinks:AI.sketch.sinks.map(k=>`${k.width}×${k.depth} على بعد ${k.x} من الشمال`)}; }});
 const toolDefs=list=>list.map(t=>({name:t.name,description:t.description,input_schema:t.inputSchema||{type:"object",properties:{}}}));
 function aiErrMsg(e){
@@ -942,12 +1078,15 @@ function aiErrMsg(e){
   if(/authentication|api.key|x-api-key/i.test(m)) return "مفتاح Anthropic غلط. حطّو من جديد بـ Supabase.";
   if(/overloaded|rate/i.test(m)) return "الخدمة مضغوطة هلق. جرّب بعد دقيقة.";
   if(m==="aborted") return "";
+  if(m==="timeout") return "المساعد ما ردّ خلال دقيقة. روح عالإعدادات واكبس فحص المساعد لنعرف السبب.";
   return "صار خطأ بالمساعد: "+m.slice(0,140);
 }
 async function aiCall(body){
   if(!navigator.onLine) throw new Error("offline");
   if(!Store.sb) throw new Error("no_backend");
-  const {data,error}=await Store.sb.functions.invoke("ai",{body});
+  let tm; const timeout=new Promise((_,rej)=>{tm=setTimeout(()=>rej(new Error("timeout")),55000)});
+  let r; try{ r=await Promise.race([Store.sb.functions.invoke("ai",{body}),timeout]); } finally { clearTimeout(tm); }
+  const {data,error}=r;
   if(error){ let info=null; try{ info=await error.context.json(); }catch(_){}
     const st=error.context&&error.context.status;
     if(st===404&&!(info&&info.error)) throw new Error("no_function");
@@ -959,8 +1098,9 @@ async function aiCall(body){
 // runs the tool loop locally: the model asks for a tool, the app runs it on its own data and sends the result back
 async function aiRun(system,history,tools,opts){
   opts=opts||{}; const msgs=history.slice(); let text="";
-  for(let step=0;step<10;step++){
+  for(let step=0;step<8;step++){
     if(AI.cancel) throw new Error("aborted");
+    if(step) AI.setStatus("عم كمّل… (خطوة "+(step+1)+")");
     const res=await aiCall({system,messages:msgs,tools:tools?toolDefs(tools):undefined,tool_choice:opts.tool_choice,max_tokens:opts.max_tokens||2500});
     const blocks=res.content||[]; msgs.push({role:"assistant",content:blocks});
     const t=blocks.filter(b=>b.type==="text").map(b=>b.text).join("\n").trim(); if(t) text=t;
@@ -978,12 +1118,24 @@ async function aiRun(system,history,tools,opts){
 async function aiSketch(desc){
   AI.sketch=null; AI.cancel=false;
   const tool=AI_TOOLS.find(t=>t.name==="draw_sketch");
-  await aiRun(`إنت رسّام فني بشركة ${S.settings.companyAr||"ماضي"} لمعدات المطابخ الستانلس بلبنان. حوّل وصف الزبون لمقاسات بالسنتيمتر واستعمل draw_sketch. إذا شي مش محدد، استعمل المقاسات المعتادة بالمطابخ التجارية (ارتفاع 90، ظهر 10، رف تحت واحد، عمق جرن 30).`,
+  await aiRun(`إنت رسّام فني بشركة ${S.settings.companyAr||"ماضي"} لمعدات المطابخ الستانلس بلبنان. حوّل وصف الزبون لمقاسات بالسنتيمتر واستعمل draw_sketch فورًا بلا أسئلة. إذا شي مش محدد، استعمل المقاسات المعتادة بالمطابخ التجارية (ارتفاع 90، ظهر 10، رف تحت واحد، عمق جرن 30). إذا الشي مش طاولة أو خزانة أو شفاط أو رف عادي، استعمل kind=custom. إذا طلب مخطط مطبخ أو مطعم كامل، استعمل kind=plan.`,
     [{role:"user",content:desc}],[tool],{tool_choice:{type:"tool",name:"draw_sketch"},stopAfterTool:true,max_tokens:1500});
   if(!AI.sketch) throw new Error("ما طلعت رسمة");
   return AI.sketch;
 }
 
+async function aiDiag(){
+  const out=$("#aidiag"); out.hidden=false; const L=[]; const show=()=>{out.textContent=L.join("\n")};
+  L.push("1. الإنترنت: "+(navigator.onLine?"موجود ✓":"مقطوع ✗")); show();
+  L.push("2. Supabase: "+(Store.sb?"موصول ✓":"مش موصول ✗")); L.push("3. تسجيل الدخول: "+(Store.user?"✓ "+(Store.user.email||""):"✗")); show();
+  if(!Store.sb||!navigator.onLine){ L.push("ما فيني كمّل الفحص."); show(); return; }
+  L.push("4. عم جرّب دالة المساعد…"); show(); const t0=Date.now();
+  try{ const r=await aiCall({system:"Reply with one word.",messages:[{role:"user",content:"قول: تمام"}],max_tokens:50});
+    const txt=(r.content||[]).filter(b=>b.type==="text").map(b=>b.text).join(" ");
+    L[L.length-1]=`4. المساعد ردّ بـ ${((Date.now()-t0)/1000).toFixed(1)} ثانية ✓  الرد: ${txt.slice(0,60)}`; }
+  catch(e){ L[L.length-1]=`4. المساعد ما زبط ✗ بعد ${((Date.now()-t0)/1000).toFixed(1)} ثانية\nالسبب: ${aiErrMsg(e)}\nالرسالة الأصلية: ${String(e&&e.message||e).slice(0,300)}`; }
+  show();
+}
 // ---------- AI ASSISTANT VIEW ----------
 AI.setStatus=s=>{AI.status=s;const el=$("#aistatus");if(el)el.textContent=s;};
 function aiRules2(){ return aiRules()+`
@@ -1025,7 +1177,9 @@ async function aiSend(text,isSummary){
     AI.msgs[idx].text=res.text||(AI.sketch?"هيدي الرسمة:":"");
     if(AI.draft) AI.msgs[idx].draft=AI.draft;
     if(AI.sketch) AI.msgs[idx].sketch=AI.sketch;
-  }catch(e){ const m=aiErrMsg(e); if(m) AI.msgs[idx].text=m; else AI.msgs.splice(idx,1); }
+  }catch(e){ const m=aiErrMsg(e); const loc=/رسم|ارسم|رسمه|رسمة/.test(text)?parseSketchText(text):null;
+    if(loc&&loc.ok){ AI.msgs[idx].text="المساعد ما ردّ، فرسمتها من الوصف مباشرة. ("+m+")"; AI.msgs[idx].sketch=loc.spec; }
+    else if(m) AI.msgs[idx].text=m; else AI.msgs.splice(idx,1); }
   AI.busy=false; AI.status=""; render(); scrollAI();
   if(AI.msgs[idx]&&AI.msgs[idx].draft&&!AI.msgs[idx].sketch) openInvoice(null,AI.msgs[idx].draft.type,AI.msgs[idx].draft);
 }
@@ -1275,8 +1429,10 @@ function vSettings(){
     <button class="btn" id="impcat">استيراد كتالوج العبدالله (221 منتج)</button>
     <label class="btn" style="cursor:pointer">استيراد نسخة احتياطية<input type="file" id="impfile" accept=".json,application/json" hidden></label>
     <button class="btn" id="backup">تنزيل نسخة احتياطية</button>
+    <button class="btn" id="aidiagbtn">فحص المساعد</button>
     ${Store.user?`<button class="btn danger" id="logout">تسجيل خروج</button>`:""}
    </div>
+   <pre id="aidiag" hidden style="white-space:pre-wrap;background:var(--sunk);padding:10px;border-radius:8px;font-size:13px;margin:0;direction:rtl"></pre>
    <p class="muted" style="margin:0;font-size:13px">التطبيق بيشتغل بلا إنترنت. أي شي بتسجّلو وقت ينقطع النت بينحفظ عالجهاز، وبيترفع لحالو أول ما يرجع.</p>
   </div>
   <div class="card" style="padding:16px"><h2>كيف بيشتغل البرنامج</h2>
@@ -1313,6 +1469,7 @@ function bindView(){
   $("#impcat")&&($("#impcat").onclick=importCatalog);
   $("#impfile")&&($("#impfile").onchange=e=>{const f=e.target.files[0];if(f)importBackupFile(f)});
   $("#logout")&&($("#logout").onclick=signOut);
+  $("#aidiagbtn")&&($("#aidiagbtn").onclick=aiDiag);
   $("#install")&&($("#install").onclick=async()=>{installEvt.prompt();await installEvt.userChoice;installEvt=null;render()});
 }
 document.addEventListener("click",e=>{
@@ -1391,7 +1548,7 @@ render();
 if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 let installEvt=null; window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;softRender()});
 
-window.MADI={sketchPNG,sketchSVG,invoicePages,pagesToPDF,S,importCatalog,Store,aiSend,AI};
+window.MADI={sketchPNG,sketchSVG,invoicePages,pagesToPDF,S,importCatalog,Store,aiSend,AI,parseSketchText};
 })();
 </script>
 </body>

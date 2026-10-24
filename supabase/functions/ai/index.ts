@@ -33,6 +33,7 @@ async function viaAnthropic(key: string, b: Any) {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(50000),
   });
   const out = await r.json();
   if (!r.ok) return json({ error: out?.error?.message || out?.error?.type || "ai_error" }, r.status);
@@ -98,6 +99,7 @@ async function viaGemini(key: string, b: Any) {
     method: "POST",
     headers: { "x-goog-api-key": key, "content-type": "application/json" },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(50000),
   });
   const out = await r.json();
   if (!r.ok) return json({ error: out?.error?.message || out?.error?.status || "ai_error" }, r.status);
