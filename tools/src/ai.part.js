@@ -22,7 +22,10 @@ function aiErrMsg(e){
   const m=String((e&&e.message)||e||"");
   if(m==="offline") return "المساعد بدو إنترنت. جرّب لما يرجع النت.";
   if(m==="no_backend") return "المساعد بيشتغل بس لما التطبيق يكون موصول بـ Supabase.";
-  if(m==="no_key") return "لازم تحط مفتاح Anthropic بـ Supabase أول (شوف ملف AI-SETUP بالـ GitHub).";
+  if(m==="no_key") return "لازم تحط مفتاح المساعد بـ Supabase أول (شوف ملف AI-SETUP بالـ GitHub).";
+  if(/quota|RESOURCE_EXHAUSTED|exceeded/i.test(m)) return "خلص الحد المجاني هلق. استنى دقيقة وجرّب، وإذا ما زبط بيرجع بكرا.";
+  if(/API key not valid|API_KEY_INVALID/i.test(m)) return "مفتاح Gemini غلط. حطّو من جديد بـ Supabase.";
+  if(/not available in your country|location is not supported|FAILED_PRECONDITION/i.test(m)) return "Google ما عم تسمح بالخدمة المجانية من هالمنطقة. منجرّب حل تاني.";
   if(m==="no_function") return "لازم تنشر دالة المساعد (ai) على Supabase أول.";
   if(m==="not_signed_in") return "لازم تعمل تسجيل دخول من جديد.";
   if(/credit|billing|balance/i.test(m)) return "الرصيد بحساب Anthropic خلص. اشحن من console.anthropic.com.";
