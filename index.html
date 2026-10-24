@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>حسابات ماضي</title>
-<meta name="theme-color" content="#0f5c4d">
+<meta name="theme-color" content="#0c0c0c">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="حسابات ماضي">
@@ -42,7 +42,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .app{display:grid;grid-template-columns:232px 1fr;min-height:100%}
 nav.side{background:var(--panel);border-inline-start:1px solid var(--line);padding:20px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
 .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 18px}
-.brand .mark{width:36px;height:36px;border-radius:8px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:18px}
+.brand .mark{width:40px;height:40px;object-fit:cover;border-radius:8px;background:#0c0c0c;color:var(--accent-fg);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:18px}
 .brand b{font-family:var(--display);font-size:17px;display:block;line-height:1.2}
 .brand small{color:var(--muted);font-size:12px}
 .navbtn{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;background:none;border-radius:var(--r);cursor:pointer;text-align:start;color:var(--muted);font-weight:500}
@@ -327,7 +327,7 @@ function printHtml(html){
 // ---------- shell ----------
 function renderNav(){
   const h=VIEWS.map(([id,label,icn])=>`<button class="navbtn" data-go="${id}" ${id===view?'aria-current="page"':""}>${ic(icn)}<span>${label}</span></button>`).join("");
-  $("#side").innerHTML=`<div class="brand"><div class="mark">م</div><div><b>${esc(S.settings.companyAr||"ماضي")}</b><small>نظام المحاسبة</small></div></div>${h}<div class="foot">سعر الصرف: <span class="num">${fmt(S.settings.rate)}</span> ل.ل<br>${Store.user?syncBadge()+`<br><span style="font-size:11px">${esc(Store.user.email||"")}</span>`:""}</div>`;
+  $("#side").innerHTML=`<div class="brand"><img class="mark" src="icons/logo-mark.jpg" alt="MADI"><div><b>${esc(S.settings.companyAr||"ماضي")}</b><small>نظام المحاسبة</small></div></div>${h}<div class="foot">سعر الصرف: <span class="num">${fmt(S.settings.rate)}</span> ل.ل<br>${Store.user?syncBadge()+`<br><span style="font-size:11px">${esc(Store.user.email||"")}</span>`:""}</div>`;
   $("#mob").innerHTML=h;
 }
 function go(v){view=v;try{history.replaceState(null,"","#"+v)}catch(e){}ui.q="";ui.filter="all";render();window.scrollTo(0,0)}
@@ -761,8 +761,8 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#scrim"))closeLa
 
 // ---------- auth, import, boot ----------
 function vLogin(){
-  return `<div style="max-width:380px;margin:8vh auto 0;display:flex;flex-direction:column;gap:18px">
-   <div class="brand" style="justify-content:center"><div class="mark">م</div><div><b>${esc(S.settings.companyAr||"ماضي لتجهيز المطابخ")}</b><small>نظام المحاسبة</small></div></div>
+  return `<div style="max-width:380px;margin:6vh auto 0;display:flex;flex-direction:column;gap:18px"><img src="icons/logo-word.jpg" alt="MADI Kitchen Equipment" style="width:100%;border-radius:10px;display:block">
+   <div class="brand" style="justify-content:center"><div><b>${esc(S.settings.companyAr||"ماضي لتجهيز المطابخ")}</b><small>نظام المحاسبة</small></div></div>
    <form id="loginf" class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px">
     <h2>تسجيل الدخول</h2>
     <label class="f"><span>الإيميل</span><input type="text" id="lemail" dir="ltr" autocomplete="username" inputmode="email"></label>
