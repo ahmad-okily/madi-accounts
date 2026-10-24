@@ -37,3 +37,17 @@
 1. اعمل مفتاح من console.anthropic.com (بدو بطاقة ورصيد).
 2. حطّو بـ Supabase Secrets باسم ANTHROPIC_API_KEY
 3. ما بدك تغيّر شي تاني. إذا المفتاحين موجودين، بيستعمل Anthropic.
+
+## إذا Gemini قال إنو الحد خلص من أول مرة: زيد مفتاح Groq (مجاني كمان)
+1. افتح console.groq.com
+2. سجّل دخول بحساب Gmail.
+3. اكبس API Keys.
+4. اكبس Create API Key.
+5. سمّيه MADI.
+6. انسخ المفتاح (بيبلش بـ gsk_).
+7. بـ Supabase اكبس Edge Functions.
+8. اكبس Secrets.
+9. بخانة Name اكتب: GROQ_API_KEY
+10. بخانة Value الصق المفتاح.
+11. اكبس Save.
+المساعد بيجرّب Gemini أول، وإذا ما زبط بيروح على Groq لحالو.

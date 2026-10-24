@@ -1069,6 +1069,8 @@ function aiErrMsg(e){
   if(m==="offline") return "المساعد بدو إنترنت. جرّب لما يرجع النت.";
   if(m==="no_backend") return "المساعد بيشتغل بس لما التطبيق يكون موصول بـ Supabase.";
   if(m==="no_key") return "لازم تحط مفتاح المساعد بـ Supabase أول (شوف ملف AI-SETUP بالـ GitHub).";
+  if(/all_gemini_failed/.test(m)&&/limit: 0/.test(m)) return "حساب Gemini تبعك ما إلو حد مجاني. زيد مفتاح Groq المجاني (شوف الخطوات بملف AI-SETUP).";
+  if(/all_gemini_failed|all_groq_failed/.test(m)) return "كل الموديلات المجانية مشغولة أو خلص حدها هلق. جرّب بعد دقيقة.";
   if(/quota|RESOURCE_EXHAUSTED|exceeded/i.test(m)) return "خلص الحد المجاني هلق. استنى دقيقة وجرّب، وإذا ما زبط بيرجع بكرا.";
   if(/API key not valid|API_KEY_INVALID/i.test(m)) return "مفتاح Gemini غلط. حطّو من جديد بـ Supabase.";
   if(/not available in your country|location is not supported|FAILED_PRECONDITION/i.test(m)) return "Google ما عم تسمح بالخدمة المجانية من هالمنطقة. منجرّب حل تاني.";
@@ -1100,7 +1102,7 @@ async function aiCall(body){
   finally{ clearTimeout(tm); }
   let data=null; try{ data=await r.json(); }catch(_){}
   if(!r.ok){ if(r.status===404&&!(data&&data.error)) throw new Error("no_function");
-    const m=data&&(data.error||data.message||data.msg); throw new Error(typeof m==="string"?m:(m&&(m.message||m.type))||("http "+r.status)); }
+    const m=data&&(data.error||data.message||data.msg); const det=data&&Array.isArray(data.details)?" | "+data.details.join(" | "):""; throw new Error((typeof m==="string"?m:(m&&(m.message||m.type))||("http "+r.status))+det); }
   if(data&&data.type==="error") throw new Error((data.error&&data.error.message)||"error");
   return data;
 }
@@ -1141,8 +1143,8 @@ async function aiDiag(){
   L.push("4. عم جرّب دالة المساعد…"); show(); const t0=Date.now();
   try{ const r=await aiCall({system:"Reply with one word.",messages:[{role:"user",content:"قول: تمام"}],max_tokens:50});
     const txt=(r.content||[]).filter(b=>b.type==="text").map(b=>b.text).join(" ");
-    L[L.length-1]=`4. المساعد ردّ بـ ${((Date.now()-t0)/1000).toFixed(1)} ثانية ✓  الرد: ${txt.slice(0,60)}`; }
-  catch(e){ L[L.length-1]=`4. المساعد ما زبط ✗ بعد ${((Date.now()-t0)/1000).toFixed(1)} ثانية\nالسبب: ${aiErrMsg(e)}\nالرسالة الأصلية: ${String(e&&e.message||e).slice(0,300)}`; }
+    L[L.length-1]=`4. المساعد ردّ بـ ${((Date.now()-t0)/1000).toFixed(1)} ثانية ✓  الرد: ${txt.slice(0,60)}${r.model?"  (الموديل: "+r.model+")":""}`; }
+  catch(e){ L[L.length-1]=`4. المساعد ما زبط ✗ بعد ${((Date.now()-t0)/1000).toFixed(1)} ثانية\nالسبب: ${aiErrMsg(e)}\nالرسالة الأصلية: ${String(e&&e.message||e).slice(0,900)}`; }
   show();
 }
 // ---------- AI ASSISTANT VIEW ----------
