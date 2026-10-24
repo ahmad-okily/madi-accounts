@@ -94,6 +94,10 @@ textarea{min-height:64px;resize:vertical}
 .toolbar select{width:auto}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
 label.f>span{font-weight:500}
+.sk-grid{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:16px;align-items:start}
+@media (max-width:900px){.sk-grid{grid-template-columns:1fr}}
+.sk-prev{padding:8px;background:#fff}.sk-prev svg{display:block;width:100%;height:auto}
+#homeai svg{width:22px;height:22px;color:var(--accent,#c47a2c);flex:none}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .seg button{border:0;background:var(--panel);padding:6px 12px;cursor:pointer;color:var(--muted)}
@@ -168,16 +172,17 @@ const ICON={
  people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 5a3 3 0 0 1 0 6M18 14.5c2 .6 3.2 2.5 3.5 5.5"/>',
  cash:'<rect x="2.5" y="6" width="19" height="12" rx="1.5"/><circle cx="12" cy="12" r="2.6"/>',
  chart:'<path d="M4 20V4M4 20h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/>',
+ pen:'<path d="M3 21h4L19 9l-4-4L3 17z"/><path d="M14 6l4 4"/><path d="M3 21l18 0" opacity=".35"/>',
  spark:'<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/>',
  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.5a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.1a2 2 0 1 1 0 4z"/>'
 };
 const ic=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 
-const VIEWS=[["home","الرئيسية","home"],["sales","المبيعات","sale"],["purchases","المشتريات","buy"],["products","المخزون","box"],["parties","الزباين والموردين","people"],["cash","الصندوق والمصاريف","cash"],["reports","التقارير","chart"],["settings","الإعدادات","gear"]];
+const VIEWS=[["home","الرئيسية","home"],["ai","المساعد الذكي","spark"],["sketch","الرسومات","pen"],["sales","المبيعات","sale"],["purchases","المشتريات","buy"],["products","المخزون","box"],["parties","الزباين والموردين","people"],["cash","الصندوق والمصاريف","cash"],["reports","التقارير","chart"],["settings","الإعدادات","gear"]];
 
 // ---------- state ----------
-const S={products:[],parties:[],invoices:[],vouchers:[],settings:{company:"MADI Kitchen Equipment",companyAr:"ماضي لتجهيز المطابخ",phone:"",address:"لبنان",rate:89500,openingCash:0,expenseCats:["إيجار","رواتب","كهربا ومولد","نقل وتوصيل","صيانة","جمارك وشحن","مصاريف متفرقة"]},
-  ready:{products:false,parties:false,invoices:false,vouchers:false},canWrite:true,db:null,dl:null,offline:false};
+const S={products:[],parties:[],invoices:[],vouchers:[],sketches:[],settings:{company:"MADI Kitchen Equipment",companyAr:"ماضي لتجهيز المطابخ",phone:"+961 71 786 303",address:"Lebanon",website:"madiequipment.com",invoiceNotes:"",rate:89500,openingCash:0,expenseCats:["إيجار","رواتب","كهربا ومولد","نقل وتوصيل","صيانة","جمارك وشحن","مصاريف متفرقة"]},
+  ready:{products:false,parties:false,invoices:false,vouchers:false,sketches:false},canWrite:true,db:null,dl:null,offline:false};
 let view=(location.hash||"").replace("#","")||"home"; if(!VIEWS.some(v=>v[0]===view)) view="home";
 let ui={q:"",filter:"all",from:monthStart(),to:today(),partyType:"customer"};
 
@@ -225,7 +230,7 @@ function nextNo(type){ const pre={sale:"S",purchase:"P",quote:"Q"}[type]; let m=
   return pre+"-"+String(m+1).padStart(4,"0"); }
 
 // ---------- db (Supabase + offline cache) ----------
-const COLS=["products","parties","invoices","vouchers"];
+const COLS=["products","parties","invoices","vouchers","sketches"];
 const CFG=window.MADI_CONFIG||{};
 const Store={sb:null,user:null,idb:null,pending:0,online:navigator.onLine,syncing:false,lastSync:"",channel:null};
 function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open("madi-accounts",1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore("docs");d.createObjectStore("outbox",{autoIncrement:true});d.createObjectStore("meta")};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
@@ -244,7 +249,7 @@ async function loadLocal(){
   Store.pending=(await idbGetAll("outbox")).length;
   COLS.forEach(c=>S.ready[c]=true);
 }
-let rerenderT; function softRender(){clearTimeout(rerenderT);rerenderT=setTimeout(()=>{ if(!$("#scrim")) render(); else renderNav(); },120)}
+let rerenderT; function softRender(){clearTimeout(rerenderT);rerenderT=setTimeout(()=>{ const a=document.activeElement; const typing=a&&a.closest&&a.closest("#view")&&/INPUT|TEXTAREA|SELECT/.test(a.tagName); if(!$("#scrim")&&!typing) render(); else renderNav(); },120)}
 async function save(col,obj){
   if(!S.canWrite){toast("ما عندك صلاحية تعديل.");return false}
   const id=obj.id||uid(); const body={...obj,id,updatedAt:new Date().toISOString()};
@@ -337,7 +342,7 @@ function render(){
   if(Store.sb&&!Store.user){ $("#side").innerHTML=""; $("#mob").innerHTML=""; document.body.classList.add("login"); $("#view").innerHTML=vLogin(); bindLogin(); return; }
   document.body.classList.remove("login");
   renderNav();
-  const fn={home:vHome,sales:()=>vInvoices("sale"),purchases:()=>vInvoices("purchase"),products:vProducts,parties:vParties,cash:vCash,reports:vReports,settings:vSettings}[view];
+  const fn={home:vHome,sales:()=>vInvoices("sale"),purchases:()=>vInvoices("purchase"),products:vProducts,parties:vParties,cash:vCash,reports:vReports,settings:vSettings,ai:vAI,sketch:vSketch}[view];
   const ro=S.noBackend?`<div class="banner">التطبيق مش موصول بقاعدة البيانات لسا (ملف config.js فاضي). البيانات عم تنحفظ على هالجهاز بس.</div>`:(!S.canWrite?`<div class="banner">ما عندك صلاحية تعديل.</div>`:"");
   $("#view").innerHTML=ro+fn();
   bindView();
@@ -356,6 +361,7 @@ function vHome(){
   const nothing=!S.invoices.length&&!S.products.length&&!S.parties.length;
   return `<div class="head"><div><h1>أهلا، هيدا ملخص الشغل</h1><p class="sub">شهر ${new Date().toLocaleDateString("ar-LB",{month:"long",year:"numeric"})} · الأرقام بالدولار، والليرة حسب سعر الصرف <span class="num">${fmt(rate())}</span></p></div>
    <div class="row"><button class="btn pri" data-new="sale">+ فاتورة بيع</button><button class="btn" data-new="purchase">+ فاتورة شراء</button><button class="btn" data-newv="receipt">+ قبض</button><button class="btn" data-newv="expense">+ مصروف</button></div></div>
+  <form class="card" id="homeai" style="display:flex;gap:8px;padding:12px;align-items:center">${ic("spark")}<input type="text" id="homeaiin" placeholder="اسأل المساعد أو اطلب رسمة: مثلا ارسملي مجلى 2 متر ب 70 فيه جرنين" style="flex:1"><button class="btn pri" type="submit">اسأل</button></form>
   ${loading()?`<div class="card empty">عم يحمّل البيانات…</div>`:""}
   ${nothing&&!loading()?`<div class="card empty"><b>البرنامج فاضي وجاهز</b>ابدأ بالترتيب هيدا: ١. عبّي اسم الشركة وسعر الصرف من الإعدادات. ٢. زيد المنتجات بالمخزون. ٣. زيد الزباين والموردين. ٤. سجّل أول فاتورة.<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" data-go="settings">الإعدادات</button><button class="btn pri" data-go="settings">استورد كتالوج العبدالله</button></div></div>`:""}
   <div class="tiles">
@@ -412,7 +418,7 @@ function openInvoice(id,type,draft){
     const parties=S.parties.filter(p=>p.type===ptype).sort((a,b)=>a.name.localeCompare(b.name,"ar"));
     const title={sale:"فاتورة بيع",purchase:"فاتورة شراء",quote:"عرض سعر"}[inv.type];
     $("#layer").innerHTML=`<div class="scrim" id="scrim"><div class="drawer" role="dialog" aria-label="${title}">
-     <div class="dh"><h2>${title} <span class="num muted">${esc(inv.no)}</span></h2><div class="row">${id?`<button class="btn sm" id="exp">طباعة / PDF</button>`:""}<button class="x" id="close" aria-label="سكّر">×</button></div></div>
+     <div class="dh"><h2>${title} <span class="num muted">${esc(inv.no)}</span></h2><div class="row"><button class="btn sm" data-exp="print">طباعة</button><button class="btn sm" data-exp="pdf">PDF</button><button class="btn sm pri" data-exp="share">ابعت للزبون</button><button class="x" id="close" aria-label="سكّر">×</button></div></div>
      ${inv.status==="cancelled"?`<div class="banner">هيدي الفاتورة ملغاة وما بتدخل بالحسابات.</div>`:""}
      ${draft&&!id?`<div class="banner">مسودة من المساعد الذكي. راجع المنتجات والأسعار والمدفوع، وبعدين اكبس حفظ.${draft.newParty&&!inv.partyId?` الزبون "${esc(draft.partyName)}" مش موجود. اكبس "+ زبون جديد" لتزيدو.`:""}</div>`:""}
      <div class="fgrid">
@@ -423,7 +429,7 @@ function openInvoice(id,type,draft){
      <div><button class="btn sm" id="qparty">+ ${isPur?"مورد جديد":"زبون جديد"}</button></div>
      <datalist id="plist">${S.products.map(p=>`<option value="${esc(p.nameAr)}">${esc(p.code||"")} · ${esc(p.nameEn||"")}</option>`).join("")}</datalist>
      <div class="card scroll"><table class="lines"><thead><tr><th style="min-width:200px">المنتج أو الخدمة</th><th class="n" style="width:90px">الكمية</th><th class="n" style="width:120px">السعر $</th><th class="n" style="width:110px">المجموع</th>${isPur?"":`<th class="n" style="width:90px">الموجود</th>`}<th></th></tr></thead><tbody>
-      ${inv.lines.map((l,i)=>`<tr><td><input type="text" list="plist" data-l="${i}" data-k="name" value="${esc(l.base||l.name)}" placeholder="اكتب اسم المنتج أو خدمة (تركيب، صيانة…)">${(()=>{const p=l.pid&&prodById(l.pid);return p&&(p.variants||[]).length?`<select data-l="${i}" data-k="variant" style="margin-top:4px" aria-label="المقاس">${p.variants.map((v,j)=>`<option value="${j}" ${+l.vi===j?"selected":""}>${esc(v.label)} · $${fmt(v.price)}</option>`).join("")}</select>`:""})()}</td>
+      ${inv.lines.map((l,i)=>`<tr><td><input type="text" list="plist" data-l="${i}" data-k="name" value="${esc(l.base||l.name)}" placeholder="اكتب اسم المنتج أو خدمة (تركيب، صيانة…)"><input type="text" data-l="${i}" data-k="det" value="${esc(l.det||"")}" placeholder="تفاصيل بتطلع تحت الاسم عالفاتورة (اختياري)" style="margin-top:4px;font-size:13px">${(()=>{const p=l.pid&&prodById(l.pid);return p&&(p.variants||[]).length?`<select data-l="${i}" data-k="variant" style="margin-top:4px" aria-label="المقاس">${p.variants.map((v,j)=>`<option value="${j}" ${+l.vi===j?"selected":""}>${esc(v.label)} · $${fmt(v.price)}</option>`).join("")}</select>`:""})()}</td>
        <td><input type="number" step="any" min="0" data-l="${i}" data-k="qty" value="${l.qty}" class="num"></td>
        <td><input type="number" step="any" min="0" data-l="${i}" data-k="price" value="${l.price}" class="num"></td>
        <td class="n">${usd((+l.qty||0)*(+l.price||0))}</td>
@@ -454,6 +460,7 @@ function openInvoice(id,type,draft){
         if(p){l.pid=p.id;l.base=p.nameAr;l.name=p.nameAr;l.cost=+p.cost||0;l.price=isPur?(+p.cost||0):(+p.price||0); delete l.vi;
           if((p.variants||[]).length){l.vi=0;const v=p.variants[0];l.name=p.nameAr+" — "+v.label;if(!isPur)l.price=+v.price||0;}} else {l.pid="";l.base="";delete l.vi;} }
       else if(k==="variant"){ const p=prodById(l.pid); const v=p&&p.variants[+inp.value]; if(v){l.vi=+inp.value;l.name=p.nameAr+" — "+v.label;if(!isPur)l.price=+v.price||0;} }
+      else if(k==="det") l.det=inp.value;
       else l[k]=+inp.value||0;
       draw();
     });
@@ -464,7 +471,7 @@ function openInvoice(id,type,draft){
     $("#delyes")&&($("#delyes").onclick=async()=>{if(await remove("invoices",inv.id)){closeLayer();toast("انحذفت الفاتورة")}});
     $("#cancel")&&($("#cancel").onclick=()=>{sync();inv.status=inv.status==="cancelled"?"open":"cancelled";draw()});
     $("#toinv")&&($("#toinv").onclick=()=>{sync();inv.type="sale";inv.no=nextNo("sale");draw();toast("صارت فاتورة بيع. اكبس حفظ لتثبت.")});
-    $("#exp")&&($("#exp").onclick=()=>{sync();exportInvoice(inv)});
+    document.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{sync();exportInvoice(inv,b.dataset.exp)});
     $("#saveinv").onclick=async()=>{
       sync(); inv.lines=inv.lines.filter(l=>l.name.trim()||(+l.price));
       if(!inv.lines.length){toast("زيد سطر واحد عالأقل");inv.lines.push({pid:"",name:"",qty:1,price:0,cost:0});draw();return}
@@ -480,16 +487,569 @@ function openInvoice(id,type,draft){
 }
 function closeLayer(){$("#layer").innerHTML="";}
 
-async function exportInvoice(inv){
-  const p=partyById(inv.partyId)||{}; const st=S.settings; const t=invTotal(inv); const title={sale:"فاتورة",purchase:"فاتورة شراء",quote:"عرض سعر"}[inv.type];
-  const rows=(inv.lines||[]).map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l.name)}</td><td class=n>${fmt(l.qty)}</td><td class=n>$${fmt(l.price)}</td><td class=n>$${fmt(l.qty*l.price)}</td></tr>`).join("");
-  const html=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${title} ${esc(inv.no)}</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#1d2522;margin:32px;font-size:14px}h1{margin:0;font-size:22px}.top{display:flex;justify-content:space-between;border-bottom:3px solid #0f5c4d;padding-bottom:14px;margin-bottom:18px}table{width:100%;border-collapse:collapse;margin-top:14px}th{background:#0f5c4d;color:#fff;padding:8px;text-align:right}td{padding:8px;border-bottom:1px solid #ddd}.n{text-align:left;direction:ltr}.tot{margin-top:16px;margin-right:auto;width:300px}.tot div{display:flex;justify-content:space-between;padding:4px 0}.big{font-size:18px;font-weight:bold;border-top:2px solid #1d2522}.muted{color:#666}@media print{body{margin:10mm}}</style></head><body>
-  <div class="top"><div><h1>${esc(st.companyAr||"")}</h1><div>${esc(st.company||"")}</div><div class="muted">${esc(st.address||"")} ${st.phone?" · "+esc(st.phone):""}</div></div><div style="text-align:left"><h1>${title}</h1><div>رقم: ${esc(inv.no)}</div><div>التاريخ: ${inv.date}</div></div></div>
-  <div><b>${inv.type==="purchase"?"المورد":"إلى"}:</b> ${esc(p.name||"زبون نقدي")} ${p.phone?" · "+esc(p.phone):""}</div>
-  <table><thead><tr><th>#</th><th>البيان</th><th>الكمية</th><th>السعر</th><th>المجموع</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="tot">${+inv.discount?`<div><span>حسم</span><span>$${fmt(inv.discount)}</span></div>`:""}<div class="big"><span>المجموع</span><span>$${fmt(t)}</span></div><div class="muted"><span>بالليرة اللبنانية</span><span>${Math.round(t*rate()).toLocaleString("en-US")} ل.ل</span></div>${inv.type!=="quote"?`<div><span>المدفوع</span><span>$${fmt(inv.paid||0)}</span></div><div><span>الباقي</span><span>$${fmt(t-(+inv.paid||0))}</span></div>`:""}</div>
-  ${inv.notes?`<p style="margin-top:20px"><b>ملاحظات:</b> ${esc(inv.notes)}</p>`:""}<p class="muted" style="margin-top:40px;font-size:12px">سعر الصرف المعتمد: ${fmt(rate())} ل.ل للدولار. </p></body></html>`;
-  printHtml(html);
+// ---------- INVOICE: print / PDF / share (canvas pages, no external library) ----------
+const IV={W:1654,H:2339,M:120};
+const hasAr=t=>/[؀-ۿ]/.test(String(t||""));
+function ivText(x,t,X,Y,font,color,align){ x.font=font; x.fillStyle=color||"#111"; x.textAlign=align||"left"; x.direction=hasAr(t)?"rtl":"ltr"; x.fillText(String(t??""),X,Y); }
+function ivWrap(x,t,maxW,font){ x.font=font; const out=[]; for(const para of String(t||"").split("\n")){ let line=""; for(const w of para.split(/\s+/)){ const tst=line?line+" "+w:w; if(x.measureText(tst).width>maxW&&line){out.push(line);line=w}else line=tst; } out.push(line); } return out.filter((l,i,a)=>l||a.length===1); }
+const ivMoney=v=>(Math.round((+v||0)*100)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const ivDate=d=>{const [y,m,dd]=String(d||"").split("-");return dd?`${dd}/${m}/${y}`:String(d||"")};
+let LOGO_IMG=null;
+async function ivLogo(){ if(LOGO_IMG) return LOGO_IMG; try{ const i=new Image(); i.src="icons/logo-word.jpg"; await i.decode(); LOGO_IMG=i; }catch(e){} return LOGO_IMG; }
+function ivLineInfo(l){
+  const p=l.pid&&prodById(l.pid); const v=p&&l.vi!=null&&(p.variants||[])[l.vi];
+  const title=(p&&p.nameEn)?p.nameEn:(l.base||l.name||"");
+  const det=[v?v.label:"", p&&p.nameEn?(l.base||p.nameAr):"", l.det||""].filter(Boolean).join(" · ");
+  return {title,det};
+}
+async function invoicePages(inv){
+  const st=S.settings, p=partyById(inv.partyId)||{}, logo=await ivLogo();
+  const {W,H,M}=IV; const pages=[]; let c,x,y;
+  const docTitle={sale:"INVOICE",purchase:"PURCHASE INVOICE",quote:"QUOTATION"}[inv.type]||"INVOICE";
+  const noTxt="#"+(String(inv.no||"").replace(/^\D+-?/,"")||inv.no);
+  const cols={desc:M, qty:W-M-640, price:W-M-330, amt:W-M}; // qty/price/amount are right-aligned anchors
+  const newPage=(first)=>{
+    c=document.createElement("canvas"); c.width=W; c.height=H; x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,W,H); pages.push(c);
+    y=M;
+    if(logo){ const lh=110, lw=logo.naturalWidth*lh/logo.naturalHeight; x.drawImage(logo,M,y-10,Math.min(lw,420),lh); }
+    ivText(x,docTitle,W-M,y+40,"700 64px Helvetica, Arial, sans-serif","#111","right");
+    ivText(x,noTxt,W-M,y+92,"400 30px Helvetica, Arial, sans-serif","#666","right");
+    y+=140;
+    ivText(x,st.company||"Madi Kitchen Equipment",M,y,"700 40px Helvetica, Arial, sans-serif");
+    ivText(x,"Issued "+ivDate(inv.date),W-M,y,"400 28px Helvetica, Arial, sans-serif","#444","right");
+    y+=40; x.fillStyle="#111"; x.fillRect(M,y,W-2*M,4); y+=70;
+    if(first){
+      const half=(W-2*M)/2;
+      ivText(x,"FROM",M,y,"700 24px Helvetica, Arial, sans-serif","#888"); ivText(x,inv.type==="purchase"?"SUPPLIER":"BILL TO",M+half,y,"700 24px Helvetica, Arial, sans-serif","#888");
+      y+=46;
+      const from=[st.company||"Madi Kitchen Equipment",st.phone,st.address,st.website].filter(Boolean);
+      const to=[p.name||(inv.type==="purchase"?"—":"Cash customer"),p.phone,p.address].filter(Boolean);
+      for(let i=0;i<Math.max(from.length,to.length);i++){ const f=i===0?"700 30px Helvetica, Arial, sans-serif":"400 28px Helvetica, Arial, sans-serif";
+        if(from[i]) ivText(x,from[i],M,y,f,i?"#444":"#111"); if(to[i]) ivText(x,to[i],M+half,y,f,i?"#444":"#111"); y+=42; }
+      y+=40;
+    }
+    // table head
+    x.fillStyle="#f1f1f1"; x.fillRect(M,y,W-2*M,64);
+    const hf="700 24px Helvetica, Arial, sans-serif";
+    ivText(x,"DESCRIPTION",cols.desc+20,y+42,hf,"#555"); ivText(x,"QTY",cols.qty,y+42,hf,"#555","right");
+    ivText(x,"PRICE USD",cols.price,y+42,hf,"#555","right"); ivText(x,"AMOUNT USD",cols.amt-20,y+42,hf,"#555","right");
+    y+=64;
+  };
+  newPage(true);
+  const descW=cols.qty-cols.desc-140;
+  for(const l of inv.lines||[]){
+    const {title,det}=ivLineInfo(l);
+    const tl=ivWrap(x,title,descW,"700 30px Helvetica, Arial, sans-serif"), dl=det?ivWrap(x,det,descW,"400 25px Helvetica, Arial, sans-serif"):[];
+    const rh=30+tl.length*40+dl.length*34+24;
+    if(y+rh>H-M-260){ newPage(false); }
+    let yy=y+46;
+    tl.forEach((t,i)=>ivText(x,t,cols.desc+20,yy+i*40,"700 30px Helvetica, Arial, sans-serif"));
+    yy+=tl.length*40-6; dl.forEach((t,i)=>ivText(x,t,cols.desc+20,yy+i*34,"400 25px Helvetica, Arial, sans-serif","#888"));
+    const nf="400 30px Helvetica, Arial, sans-serif";
+    ivText(x,fmt(l.qty),cols.qty,y+46,nf,"#111","right"); ivText(x,ivMoney(l.price),cols.price,y+46,nf,"#111","right"); ivText(x,ivMoney((+l.qty||0)*(+l.price||0)),cols.amt-20,y+46,nf,"#111","right");
+    y+=rh; x.fillStyle="#e3e3e3"; x.fillRect(M,y-2,W-2*M,2);
+  }
+  // totals
+  const total=invTotal(inv), sub=r2(total+(+inv.discount||0));
+  if(y>H-M-420) newPage(false);
+  y+=20; const lab=cols.price-160;
+  const trow=(l,v,big,color)=>{ ivText(x,l,lab,y+40,(big?"700 34px":"400 28px")+" Helvetica, Arial, sans-serif",color||"#444","right"); ivText(x,v,cols.amt-20,y+40,(big?"700 34px":"400 28px")+" Helvetica, Arial, sans-serif",color||"#111","right"); y+=big?64:50; };
+  if(+inv.discount){ trow("Subtotal","$"+ivMoney(sub)); trow("Discount","-$"+ivMoney(inv.discount)); }
+  x.fillStyle="#111"; x.fillRect(lab-260,y+6,cols.amt-lab+260,3); y+=10;
+  trow("Total","$"+ivMoney(total),true);
+  if(inv.type==="sale"&&(+inv.paid||0)>0){ trow("Paid","$"+ivMoney(inv.paid)); const due=r2(total-(+inv.paid||0)); trow("Balance due","$"+ivMoney(due),false,due>0.009?"#b42318":"#111"); }
+  ivText(x,"≈ "+fmt(Math.round(total*rate()))+" LBP  (rate "+fmt(rate())+")",cols.amt-20,y+26,"400 22px Helvetica, Arial, sans-serif","#999","right"); y+=50;
+  // notes
+  const notes=[inv.notes,st.invoiceNotes].filter(x=>String(x||"").trim()).join("\n");
+  if(notes){
+    const nl=ivWrap(x,notes,W-2*M,"400 27px Helvetica, Arial, sans-serif");
+    if(y+90+nl.length*40>H-M-60) newPage(false);
+    y+=50; ivText(x,"NOTES & PAYMENTS INSTRUCTIONS",M,y,"700 26px Helvetica, Arial, sans-serif","#555"); y+=48;
+    nl.forEach(t=>{ ivText(x,t,hasAr(t)?W-M:M,y,"400 27px Helvetica, Arial, sans-serif","#333",hasAr(t)?"right":"left"); y+=40; });
+  }
+  // footer on every page
+  pages.forEach((pc,i)=>{ const g=pc.getContext("2d"); g.fillStyle="#e3e3e3"; g.fillRect(M,H-M+10,W-2*M,2);
+    ivText(g,[st.company||"Madi Kitchen Equipment",st.phone,st.website].filter(Boolean).join("   ·   "),M,H-M+56,"400 24px Helvetica, Arial, sans-serif","#888");
+    if(pages.length>1) ivText(g,`Page ${i+1} of ${pages.length}`,W-M,H-M+56,"400 24px Helvetica, Arial, sans-serif","#888","right"); });
+  return pages;
+}
+// minimal PDF writer: one full-page JPEG per page
+async function pagesToPDF(pages){
+  const enc=new TextEncoder(); const parts=[]; let len=0; const offs=[];
+  const add=b=>{ if(typeof b==="string") b=enc.encode(b); parts.push(b); len+=b.length; };
+  const imgs=[]; for(const c of pages){ const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.9)); imgs.push(new Uint8Array(await blob.arrayBuffer())); }
+  const n=pages.length, PW=595.28, PH=841.89;
+  add("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+  const obj=(i,body)=>{ offs[i]=len; add(`${i} 0 obj\n`); if(Array.isArray(body)) body.forEach(add); else add(body); add("\nendobj\n"); };
+  obj(1,"<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2,`<< /Type /Pages /Kids [${pages.map((_,i)=>`${3+i*3} 0 R`).join(" ")}] /Count ${n} >>`);
+  pages.forEach((c,i)=>{ const p=3+i*3, cs=p+1, im=p+2;
+    obj(p,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${im} 0 R >> >> /Contents ${cs} 0 R >>`);
+    const content=`q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
+    obj(cs,`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    obj(im,[`<< /Type /XObject /Subtype /Image /Width ${c.width} /Height ${c.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgs[i].length} >>\nstream\n`,imgs[i],"\nendstream"]);
+  });
+  const total=3+n*3; const xref=len;
+  add(`xref\n0 ${total}\n0000000000 65535 f \n`+Array.from({length:total-1},(_,i)=>String(offs[i+1]).padStart(10,"0")+" 00000 n \n").join(""));
+  add(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(parts,{type:"application/pdf"});
+}
+const invFileName=inv=>`MADI-${({sale:"Invoice",purchase:"Purchase",quote:"Quotation"})[inv.type]||"Invoice"}-${String(inv.no||"").replace(/[^\w-]+/g,"")}.pdf`;
+async function exportInvoice(inv,mode){
+  mode=mode||"print";
+  try{
+    const pages=await invoicePages(inv);
+    if(mode==="print"){
+      const imgs=pages.map(c=>`<img src="${c.toDataURL("image/jpeg",0.92)}">`).join("");
+      printHtml(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(inv.no)}</title><style>@page{size:A4;margin:0}html,body{margin:0}img{display:block;width:210mm;height:297mm;page-break-after:always}img:last-child{page-break-after:auto}</style></head><body>${imgs}</body></html>`);
+      return;
+    }
+    const pdf=await pagesToPDF(pages);
+    if(mode==="share"){ const p=partyById(inv.partyId)||{}; await shareBlob(pdf,invFileName(inv),`${S.settings.company||"MADI"} · ${inv.no}`); }
+    else downloadFile(invFileName(inv),pdf);
+  }catch(e){ console.error(e); toast("ما زبط تجهيز الفاتورة"); }
+}
+
+// ---------- SKETCHES (approximate dimensioned drawings) ----------
+let LOGO_DATA="";
+(async()=>{try{const b=await (await fetch("icons/logo-word.jpg")).blob();LOGO_DATA=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(b)})}catch(e){}})();
+const SK_KINDS={table:"طاولة / مجلى ستانلس",cabinet:"خزانة ستانلس (أبواب)",hood:"شفاط (هود)",wall_shelf:"رف حيط",layout:"مخطط مطبخ (من فوق)"};
+function skDefaults(){return {kind:"table",title:"طاولة ستانلس مع جرن",customer:"",length:300,depth:80,height:90,backsplash:10,undershelf:1,legs:6,doors:0,sinks:[{width:50,depth:40,bowlDepth:30}],parts:[],material:"ستانلس ستيل 304",notes:[]}}
+function skNorm(sp){
+  const d=skDefaults(); const s={...d,...(sp||{})}; const n=(v,def,min,max)=>{v=+v;if(!isFinite(v)||v<=0)v=def;return Math.max(min,Math.min(max,v))};
+  s.kind=SK_KINDS[s.kind]?s.kind:"table";
+  s.length=n(s.length,300,10,2000); s.depth=n(s.depth,80,5,1000); s.height=n(s.height,s.kind==="hood"?60:s.kind==="wall_shelf"?40:90,3,400);
+  s.backsplash=Math.max(0,Math.min(100,+s.backsplash||0)); s.undershelf=Math.max(0,Math.min(4,Math.round(+s.undershelf||0)));
+  s.doors=Math.max(0,Math.min(12,Math.round(+s.doors||0)));
+  let legs=Math.round(+s.legs||0); if(!legs) legs=s.length>200?6:4; s.legs=Math.max(4,Math.min(12,legs));
+  s.sinks=(Array.isArray(s.sinks)?s.sinks:[]).slice(0,6).map(k=>({width:n(k.width,50,10,s.length),depth:n(k.depth,40,10,s.depth),bowlDepth:n(k.bowlDepth,30,5,80),x:k.x===""||k.x==null||isNaN(+k.x)?null:Math.max(0,+k.x)}));
+  s.parts=(Array.isArray(s.parts)?s.parts:[]).slice(0,40).map(p=>({label:String(p.label||""),x:+p.x||0,y:+p.y||0,w:n(p.w,50,1,s.length),d:n(p.d,50,1,s.depth),shape:p.shape==="circle"?"circle":"rect"}));
+  s.notes=(Array.isArray(s.notes)?s.notes:String(s.notes||"").split(/\n/)).map(x=>String(x).trim()).filter(Boolean).slice(0,6);
+  s.title=String(s.title||SK_KINDS[s.kind]); s.customer=String(s.customer||""); s.material=String(s.material||"");
+  // place sinks with no position: spread evenly
+  const free=s.sinks.filter(k=>k.x==null);
+  if(free.length){ const used=s.sinks.filter(k=>k.x!=null).reduce((a,k)=>a+k.width,0); const tw=free.reduce((a,k)=>a+k.width,0);
+    const gap=Math.max(0,(s.length-used-tw)/(free.length+1)); let x=gap; for(const k of free){k.x=Math.round(x);x+=k.width+gap;} }
+  for(const k of s.sinks){ if(k.x+k.width>s.length) k.x=Math.max(0,s.length-k.width); }
+  s.sinks.sort((a,b)=>a.x-b.x);
+  return s;
+}
+const skx=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const skn=v=>String(Math.round(v*10)/10);
+// dimension line: horizontal (x1..x2 at y) or vertical (y1..y2 at x)
+function skDimH(x1,x2,y,label,ext1,ext2){
+  return `<g class="dim"><line x1="${x1}" y1="${ext1??y}" x2="${x1}" y2="${y+6}"/><line x1="${x2}" y1="${ext2??y}" x2="${x2}" y2="${y+6}"/>
+  <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" marker-start="url(#ar)" marker-end="url(#ar)"/>
+  ${x2-x1>34?`<rect x="${(x1+x2)/2-26}" y="${y-13}" width="52" height="20" fill="#fff"/><text x="${(x1+x2)/2}" y="${y+3}" text-anchor="middle">${skx(label)}</text>`:`<text x="${(x1+x2)/2}" y="${y-8}" text-anchor="middle">${skx(label)}</text>`}</g>`;
+}
+function skDimV(y1,y2,x,label,ext){
+  return `<g class="dim"><line x1="${ext??x}" y1="${y1}" x2="${x+6}" y2="${y1}"/><line x1="${ext??x}" y1="${y2}" x2="${x+6}" y2="${y2}"/>
+  <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" marker-start="url(#ar)" marker-end="url(#ar)"/>
+  <rect x="${x-24}" y="${(y1+y2)/2-11}" width="48" height="20" fill="#fff"/><text x="${x}" y="${(y1+y2)/2+5}" text-anchor="middle">${skx(label)}</text></g>`;
+}
+function sketchSVG(spec){
+  const s=skNorm(spec); const W=1400, M=120; const st=S.settings||{};
+  const L=s.length, D=s.depth, H=s.height, B=s.kind==="table"||s.kind==="cabinet"?s.backsplash:0;
+  const twoViews=s.kind!=="layout";
+  const sc=Math.min((W-2*M-60)/L, (twoViews?380:760)/D, twoViews?430/(H+B+(s.kind==="hood"?0:0)):99);
+  const w=L*sc, x0=(W-w)/2;
+  let y=150; let g="";
+  // header
+  g+=`<rect x="0" y="0" width="${W}" height="118" fill="#0c0c0c"/>`;
+  g+=LOGO_DATA?`<image href="${LOGO_DATA}" x="36" y="22" height="74" width="230" preserveAspectRatio="xMinYMid meet"/>`:`<text x="40" y="72" fill="#fff" font-size="34" font-weight="700" direction="ltr">MADI</text>`;
+  g+=`<text x="${W-40}" y="54" fill="#fff" font-size="30" font-weight="700" text-anchor="start" direction="rtl">${skx(s.title)}</text>`;
+  g+=`<text x="${W-40}" y="92" fill="#c9c9c9" font-size="19" text-anchor="start" direction="rtl">${skx([s.customer?("للزبون: "+s.customer):"",new Date().toLocaleDateString("en-GB"),"المقاسات بالسنتيمتر"].filter(Boolean).join("   ·   "))}</text>`;
+  const label=(t,yy)=>`<text x="${W-M+40}" y="${yy}" font-size="20" font-weight="700" fill="#555" text-anchor="start" direction="rtl">${t}</text>`;
+  // ---------- TOP VIEW ----------
+  y+=46; g+=label(s.kind==="layout"?"المخطط من فوق":"منظر من فوق",y-14);
+  const ty=y+40; const dh=D*sc;
+  if(s.kind!=="layout"&&s.sinks.length){ // chain dims above
+    let pts=[0]; for(const k of s.sinks){pts.push(k.x,k.x+k.width)} pts.push(L); pts=[...new Set(pts.map(v=>Math.round(v*10)/10))].sort((a,b)=>a-b);
+    for(let i=0;i<pts.length-1;i++) if(pts[i+1]-pts[i]>0.4) g+=skDimH(x0+pts[i]*sc,x0+pts[i+1]*sc,ty-22,skn(pts[i+1]-pts[i]),ty,ty);
+  }
+  g+=`<rect x="${x0}" y="${ty}" width="${w}" height="${dh}" fill="url(#steel)" stroke="#222" stroke-width="2.5" rx="2"/>`;
+  if(B>0&&s.kind!=="layout"){ g+=`<rect x="${x0}" y="${ty}" width="${w}" height="${Math.max(6,3*sc)}" fill="#b9c2ca" stroke="#222" stroke-width="1.5"/>`; }
+  if(s.kind==="table"||s.kind==="cabinet"){
+    for(const k of s.sinks){ const sx=x0+k.x*sc, sw=k.width*sc, sd=k.depth*sc, sy=ty+Math.max((dh-sd)/2,B>0?3*sc+4:4);
+      g+=`<rect x="${sx}" y="${sy}" width="${sw}" height="${sd}" rx="${Math.min(14,sw/6)}" fill="url(#bowl)" stroke="#222" stroke-width="2"/>`;
+      g+=`<circle cx="${sx+sw/2}" cy="${sy+sd/2}" r="${Math.max(5,3.5*sc)}" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="${sx+sw/2}" cy="${sy+sd/2}" r="${Math.max(2,1.2*sc)}" fill="#333"/>`;
+      if(sy-ty>16) g+=`<circle cx="${sx+sw/2}" cy="${(ty+(B>0?3*sc:0)+sy)/2}" r="5" fill="#fff" stroke="#333" stroke-width="1.5"/>`;
+      g+=`<text x="${sx+sw/2}" y="${sy+sd/2+(sd>70?34:-12)}" text-anchor="middle" font-size="17" font-weight="700" fill="#1d3a57" direction="ltr">${skn(k.width)}×${skn(k.depth)}</text>`;
+    }
+  }
+  if(s.kind==="hood"){ const n=Math.max(1,Math.round(L/50)), fw=(w-24)/n; for(let i=0;i<n;i++){ g+=`<rect x="${x0+12+i*fw+4}" y="${ty+dh*0.25}" width="${fw-8}" height="${dh*0.5}" fill="url(#mesh)" stroke="#444"/>`; }
+    g+=`<circle cx="${x0+w/2}" cy="${ty+dh*0.12+8}" r="${Math.min(30,dh*0.1)}" fill="#fff" stroke="#222" stroke-width="2"/>`; }
+  if(s.kind==="layout"){ for(const p of s.parts){ const px=x0+p.x*sc, py=ty+p.y*sc, pw=p.w*sc, pd=p.d*sc;
+      g+=p.shape==="circle"?`<ellipse cx="${px+pw/2}" cy="${py+pd/2}" rx="${pw/2}" ry="${pd/2}" fill="#f7f9fb" stroke="#222" stroke-width="2"/>`:`<rect x="${px}" y="${py}" width="${pw}" height="${pd}" fill="#f7f9fb" stroke="#222" stroke-width="2"/>`;
+      g+=`<text x="${px+pw/2}" y="${py+pd/2-2}" text-anchor="middle" font-size="16" font-weight="700" direction="rtl">${skx(p.label)}</text><text x="${px+pw/2}" y="${py+pd/2+18}" text-anchor="middle" font-size="14" fill="#555" direction="ltr">${skn(p.w)}×${skn(p.d)}</text>`; } }
+  g+=skDimH(x0,x0+w,ty+dh+34,skn(L),ty+dh,ty+dh);
+  g+=skDimV(ty,ty+dh,x0+w+40,skn(D),x0+w);
+  y=ty+dh+70;
+  // ---------- FRONT VIEW ----------
+  if(twoViews){
+    y+=40; g+=label("منظر من قدّام",y);
+    const fy=y+30+B*sc; const floor=fy+H*sc; const top=fy; const th=Math.max(5,4*sc);
+    if(s.kind==="hood"){
+      const sl=Math.min(H*0.45,25)*sc;
+      g+=`<path d="M${x0} ${top} H${x0+w} V${floor-sl} L${x0+w-sl*0.6} ${floor} H${x0+sl*0.6} L${x0} ${floor-sl} Z" fill="url(#steel)" stroke="#222" stroke-width="2.5"/>`;
+      g+=`<rect x="${x0+w/2-30}" y="${top-40}" width="60" height="40" fill="#e9edf1" stroke="#222" stroke-width="2"/><text x="${x0+w/2}" y="${top-50}" text-anchor="middle" font-size="15" fill="#555" direction="rtl">مخرج الشفط</text>`;
+    } else if(s.kind==="wall_shelf"){
+      const n=Math.max(1,s.undershelf||1); for(let i=0;i<n;i++){ const yy=top+(H*sc)*(n===1?0.5:i/(n-1)); g+=`<rect x="${x0}" y="${yy-th/2}" width="${w}" height="${th}" fill="url(#steel)" stroke="#222" stroke-width="2"/>`; }
+      g+=`<rect x="${x0+w*0.1}" y="${top}" width="${Math.max(4,1.5*sc)}" height="${H*sc}" fill="#999"/><rect x="${x0+w*0.9}" y="${top}" width="${Math.max(4,1.5*sc)}" height="${H*sc}" fill="#999"/>`;
+    } else {
+      if(B>0) g+=`<rect x="${x0}" y="${top-B*sc}" width="${w}" height="${B*sc}" fill="#dfe5ea" stroke="#222" stroke-width="2"/>`;
+      g+=`<rect x="${x0}" y="${top}" width="${w}" height="${th}" fill="url(#steel)" stroke="#222" stroke-width="2.5"/>`;
+      // legs
+      const nf=Math.max(2,Math.round(s.legs/2)); const lw=Math.max(5,4*sc);
+      for(let i=0;i<nf;i++){ const lx=x0+3*sc+(w-6*sc-lw)*(i/(nf-1)); g+=`<rect x="${lx}" y="${top+th}" width="${lw}" height="${floor-top-th-6}" fill="#cfd6dc" stroke="#222" stroke-width="1.5"/><rect x="${lx-3}" y="${floor-8}" width="${lw+6}" height="8" fill="#555"/>`; }
+      if(s.kind==="cabinet"&&s.doors){ const dy=top+th+4, dhh=floor-14*sc-dy, dw=(w-6*sc)/s.doors;
+        for(let i=0;i<s.doors;i++){ const dx=x0+3*sc+i*dw; g+=`<rect x="${dx+3}" y="${dy}" width="${dw-6}" height="${dhh}" fill="#eef2f5" stroke="#222" stroke-width="2"/><rect x="${i%2?dx+12:dx+dw-20}" y="${dy+dhh*0.15}" width="6" height="${Math.min(60,dhh*0.3)}" rx="3" fill="#666"/>`; }
+        g+=`<rect x="${x0+3*sc}" y="${floor-14*sc}" width="${w-6*sc}" height="${Math.max(4,2*sc)}" fill="#cfd6dc" stroke="#222"/>`;
+      } else for(let i=0;i<s.undershelf;i++){ const sy=floor-(18+i*((H-30)/Math.max(1,s.undershelf)))*sc; g+=`<rect x="${x0+3*sc}" y="${sy}" width="${w-6*sc}" height="${Math.max(4,2.5*sc)}" fill="#dde3e8" stroke="#222" stroke-width="1.5"/>`; }
+      for(const k of s.sinks){ const sx=x0+k.x*sc; g+=`<rect x="${sx}" y="${top+th}" width="${k.width*sc}" height="${k.bowlDepth*sc}" fill="none" stroke="#1d3a57" stroke-width="2" stroke-dasharray="8 6"/><text x="${sx+k.width*sc/2}" y="${top+th+k.bowlDepth*sc/2+6}" text-anchor="middle" font-size="15" fill="#1d3a57" direction="rtl">عمق ${skn(k.bowlDepth)}</text>`; }
+    }
+    g+=`<line x1="${x0-60}" y1="${floor}" x2="${x0+w+60}" y2="${floor}" stroke="#888" stroke-width="2"/>`;
+    g+=skDimH(x0,x0+w,floor+40,skn(L),floor,floor);
+    g+=skDimV(top,floor,x0-50,skn(H),x0);
+    if(B>0&&s.kind!=="hood"&&s.kind!=="wall_shelf") g+=skDimV(top-B*sc,top,x0+w+40,skn(B),x0+w);
+    y=floor+80;
+  }
+  // ---------- notes ----------
+  const notes=[s.material?`المادة: ${s.material}`:"",...(s.kind==="table"&&s.undershelf?[`رف تحتاني: ${s.undershelf}`]:[]),...(s.kind!=="layout"&&s.kind!=="hood"&&s.kind!=="wall_shelf"?[`إجرين: ${s.legs} مع رجلين قابلة للتعديل`]:[]),...s.notes].filter(Boolean);
+  y+=10; for(const t of notes){ g+=`<text x="${W-M+40}" y="${y}" font-size="19" text-anchor="start" direction="rtl">• ${skx(t)}</text>`; y+=30; }
+  y+=16;
+  g+=`<rect x="0" y="${y}" width="${W}" height="64" fill="#f2f2f2"/><text x="${W-40}" y="${y+40}" font-size="17" fill="#555" text-anchor="start" direction="rtl">رسمة تقريبية للتوضيح. المقاسات النهائية بتتأكد بعد الكشف.</text>`;
+  g+=`<text x="40" y="${y+40}" font-size="17" fill="#333" direction="ltr">${skx([st.company||"MADI Kitchen Equipment",st.phone,st.website].filter(Boolean).join("  ·  "))}</text>`;
+  const Hh=Math.ceil(y+64);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${Hh}" width="${W}" height="${Hh}" font-family="Tahoma, Arial, sans-serif" font-size="18" fill="#111">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="#c0392b"/></marker>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".5" stop-color="#dfe4e8"/><stop offset="1" stop-color="#eef1f4"/></linearGradient>
+<linearGradient id="bowl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c3ccd4"/><stop offset="1" stop-color="#e7ecf0"/></linearGradient>
+<pattern id="mesh" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 8 L8 0" stroke="#999" stroke-width="1"/></pattern>
+<style>.dim line{stroke:#c0392b;stroke-width:1.4}.dim text{fill:#c0392b;font-size:17px;font-weight:700;direction:ltr}</style></defs>
+<rect width="100%" height="100%" fill="#fff"/>${g}</svg>`;
+}
+async function sketchPNG(spec){
+  const svg=sketchSVG(spec); const m=svg.match(/^<svg[^>]*? width="(\d+)" height="(\d+)"/); const w=+m[1], h=+m[2];
+  const url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml"}));
+  try{ const img=new Image(); img.src=url; await img.decode();
+    const c=document.createElement("canvas"); c.width=w; c.height=h; const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,w,h); x.drawImage(img,0,0,w,h);
+    return await new Promise(r=>c.toBlob(r,"image/png")); } finally { URL.revokeObjectURL(url); }
+}
+async function shareBlob(blob,name,text){
+  const file=new File([blob],name,{type:blob.type});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file],title:name,text:text||""}); return; }catch(e){ if(e&&e.name==="AbortError") return; } }
+  downloadFile(name,blob); toast("نزل الملف. ابعتو للزبون من واتساب.");
+}
+const skName=s=>"MADI-"+String(skNorm(s).title).replace(/[^\p{L}\p{N}]+/gu,"-").slice(0,40)+".png";
+async function sketchShare(spec){ try{ shareBlob(await sketchPNG(spec),skName(spec)); }catch(e){ toast("ما زبط تحويل الرسمة لصورة"); } }
+async function sketchDownload(spec){ try{ downloadFile(skName(spec),await sketchPNG(spec)); }catch(e){ toast("ما زبط تحويل الرسمة لصورة"); } }
+
+// ---------- SKETCH VIEW ----------
+const SK={spec:null,id:null,busy:false,desc:""};
+function vSketch(){
+  if(!SK.spec) SK.spec=skDefaults();
+  const s=SK.spec; const list=(S.sketches||[]).slice().sort((a,b)=>String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
+  const num=(k,l,v)=>`<label class="f"><span>${l}</span><input type="number" step="any" min="0" class="num" data-sk="${k}" value="${v??""}"></label>`;
+  return `<div class="head"><div><h1>الرسومات</h1><p class="sub">اكتب وصف الشغلة والمساعد بيرسمها بالمقاسات، أو عبّي المقاسات بإيدك. بعدين ابعتها للزبون صورة.</p></div>
+   <div class="row"><button class="btn" id="sknew">رسمة جديدة</button></div></div>
+  <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+   <label class="f"><span>الوصف (بالعربي متل ما الزبون حكاه)</span><textarea id="skdesc" rows="2" placeholder="مثلا: طاولة 3 متر بـ 80 عرض، فيها جرن 50 ب 40 عالشمال، ظهر 10 سم ورف تحت">${esc(SK.desc)}</textarea></label>
+   <div class="row"><button class="btn pri" id="skai" ${SK.busy?"disabled":""}>${SK.busy?"عم يرسم…":"ارسم بالمساعد"}</button><span class="muted" style="font-size:13px">بعد الرسمة فيك تعدّل أي رقم تحت.</span></div>
+  </div>
+  <div class="sk-grid">
+   <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:12px">
+    <div class="fgrid">
+     <label class="f"><span>النوع</span><select data-sk="kind">${Object.entries(SK_KINDS).map(([k,l])=>`<option value="${k}" ${s.kind===k?"selected":""}>${l}</option>`).join("")}</select></label>
+     <label class="f"><span>العنوان</span><input type="text" data-sk="title" value="${esc(s.title)}"></label>
+     <label class="f"><span>الزبون</span><input type="text" data-sk="customer" value="${esc(s.customer||"")}"></label>
+     ${num("length","الطول (سم)",s.length)}${num("depth","العرض / العمق (سم)",s.depth)}${num("height",s.kind==="hood"?"ارتفاع الشفاط (سم)":"الارتفاع (سم)",s.height)}
+     ${s.kind==="table"||s.kind==="cabinet"?num("backsplash","الظهر (سم، 0 بلا)",s.backsplash):""}
+     ${s.kind==="table"||s.kind==="wall_shelf"?num("undershelf",s.kind==="wall_shelf"?"عدد الرفوف":"رفوف تحت",s.undershelf):""}
+     ${s.kind==="table"||s.kind==="cabinet"?num("legs","عدد الإجرين",s.legs):""}
+     ${s.kind==="cabinet"?num("doors","عدد الأبواب",s.doors):""}
+     <label class="f"><span>المادة</span><input type="text" data-sk="material" value="${esc(s.material||"")}"></label>
+    </div>
+    ${s.kind==="table"||s.kind==="cabinet"?`<div><b style="font-size:14px">الجران</b>
+     ${(s.sinks||[]).map((k,i)=>`<div class="row" style="flex-wrap:nowrap;margin-top:6px;gap:6px">
+       <input type="number" class="num" step="any" data-sks="${i}" data-k="width" value="${k.width??""}" placeholder="طول" title="طول الجرن" style="width:25%">
+       <input type="number" class="num" step="any" data-sks="${i}" data-k="depth" value="${k.depth??""}" placeholder="عرض" title="عرض الجرن" style="width:25%">
+       <input type="number" class="num" step="any" data-sks="${i}" data-k="bowlDepth" value="${k.bowlDepth??""}" placeholder="عمق" title="عمق الجرن" style="width:22%">
+       <input type="number" class="num" step="any" data-sks="${i}" data-k="x" value="${k.x??""}" placeholder="بعد عن الشمال" title="بعد الجرن عن طرف الطاولة الشمال (فاضي = بالنص)" style="width:28%">
+       <button class="x" data-skdel="${i}" aria-label="احذف الجرن">×</button></div>`).join("")}
+     <div class="muted" style="font-size:12px;margin-top:4px">طول × عرض × عمق، وبعدو عن طرف الطاولة الشمال (خليه فاضي ليتوزّع لحالو)</div>
+     <button class="btn sm" id="skaddsink" style="margin-top:6px">+ جرن</button></div>`:""}
+    <label class="f"><span>ملاحظات (كل سطر لحال)</span><textarea data-sk="notes" rows="3">${esc((s.notes||[]).join("\n"))}</textarea></label>
+    <div class="row"><button class="btn pri" id="sksave" ${S.canWrite?"":"disabled"}>حفظ</button><button class="btn" id="skshare">شارك صورة</button><button class="btn" id="skdl">نزّل PNG</button></div>
+   </div>
+   <div class="card sk-prev" id="skprev">${sketchSVG(s)}</div>
+  </div>
+  ${list.length?`<div class="card"><div class="ch"><h2>رسومات محفوظة</h2></div><div class="scroll"><table><tbody>${list.map(k=>`<tr class="click" data-skopen="${k.id}"><td>${esc(k.title||"")}</td><td class="muted">${esc(k.customer||"")}</td><td class="num muted">${esc(String(k.updatedAt||"").slice(0,10))}</td><td class="del"><button class="x" data-skrm="${k.id}" aria-label="احذف">×</button></td></tr>`).join("")}</tbody></table></div></div>`:""}`;
+}
+function skReadForm(){
+  const s=SK.spec;
+  document.querySelectorAll("[data-sk]").forEach(el=>{const k=el.dataset.sk; if(k==="notes") s.notes=el.value.split("\n"); else if(el.type==="number") s[k]=el.value===""?"":+el.value; else s[k]=el.value;});
+  document.querySelectorAll("[data-sks]").forEach(el=>{const k=s.sinks[+el.dataset.sks]; if(k) k[el.dataset.k]=el.value===""?null:+el.value;});
+}
+function bindSketch(){
+  if(!$("#skprev")) return;
+  const upd=()=>{skReadForm(); $("#skprev").innerHTML=sketchSVG(SK.spec);};
+  document.querySelectorAll("[data-sk],[data-sks]").forEach(el=>{el.oninput=upd; if(el.dataset.sk==="kind") el.onchange=()=>{skReadForm();render()};});
+  $("#skdesc").oninput=e=>{SK.desc=e.target.value};
+  $("#skaddsink")&&($("#skaddsink").onclick=()=>{skReadForm();SK.spec.sinks.push({width:50,depth:40,bowlDepth:30,x:null});render()});
+  document.querySelectorAll("[data-skdel]").forEach(b=>b.onclick=()=>{skReadForm();SK.spec.sinks.splice(+b.dataset.skdel,1);render()});
+  $("#sknew").onclick=()=>{SK.spec=skDefaults();SK.id=null;SK.desc="";render()};
+  $("#skshare").onclick=()=>{skReadForm();sketchShare(SK.spec)};
+  $("#skdl").onclick=()=>{skReadForm();sketchDownload(SK.spec)};
+  $("#sksave").onclick=async()=>{skReadForm(); const s=skNorm(SK.spec); SK.id=SK.id||uid();
+    if(await save("sketches",{id:SK.id,title:s.title,customer:s.customer,spec:SK.spec})) toast("انحفظت الرسمة");};
+  $("#skai").onclick=async()=>{ const d=$("#skdesc").value.trim(); if(!d){toast("اكتب وصف أول");return}
+    SK.busy=true; render();
+    try{ const spec=await aiSketch(d); SK.spec=spec; SK.id=null; toast("جاهزة. راجع المقاسات."); }
+    catch(e){ toast(aiErrMsg(e)); }
+    SK.busy=false; render(); };
+  document.querySelectorAll("[data-skopen]").forEach(r=>r.onclick=e=>{ if(e.target.closest("[data-skrm]")) return; const k=(S.sketches||[]).find(x=>x.id===r.dataset.skopen); if(k){SK.spec=JSON.parse(JSON.stringify(k.spec||skDefaults()));SK.id=k.id;render();window.scrollTo(0,0)} });
+  document.querySelectorAll("[data-skrm]").forEach(b=>b.onclick=async e=>{e.stopPropagation(); if(await remove("sketches",b.dataset.skrm)) toast("انحذفت الرسمة")});
+}
+
+// ---------- AI ASSISTANT ----------
+const AI={turns:[],busy:false,ctl:null,msgs:[],status:"",draft:null};
+const normAr=s=>String(s||"").toLowerCase().replace(/[ً-ْـ]/g,"").replace(/[أإآا]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/ؤ/g,"و").replace(/ئ/g,"ي");
+const SYN={"براد":["ثلاجه","fridge","refrigerator"],"ثلاجه":["براد"],"فريزر":["freezer"],"غريل":["griddle","grill","شوايه"],"شوايه":["grill","غريل"],"قلايه":["fryer"],"فرن":["oven"],"عجانه":["mixer","خفاقه"],"سخان":["warmer"],"عصاره":["juicer"],"كيك":["cake"],"طاوله":["table"],"غاز":["gas","burner"]};
+function searchProducts(q,limit=12){
+  const toks=normAr(q).split(/[\s،,]+/).filter(t=>t.length>1);
+  const scored=S.products.map(p=>{
+    const hay=normAr([p.nameAr,p.nameEn,p.cat,p.brand,p.code,(p.variants||[]).map(v=>v.label).join(" ")].join(" "));
+    let s=0; for(const t of toks){ if(hay.includes(t)) s+=2; else if((SYN[t]||[]).some(x=>hay.includes(normAr(x)))) s+=1.5; else if(/^\d+$/.test(t)&&hay.includes(t)) s+=1; }
+    return [s,p];
+  }).filter(x=>x[0]>0).sort((a,b)=>b[0]-a[0]).slice(0,limit);
+  return scored.map(([s,p])=>({code:p.code||p.id,id:p.id,name:p.nameAr,nameEn:p.nameEn,category:p.cat,brand:p.brand,price:+p.price||0,cost:+p.cost||0,stock:stock(p.id),
+    sizes:(p.variants||[]).map(v=>({label:v.label,price:+v.price||0})),specs:String(p.notes||"").slice(0,220)}));
+}
+function findParty(name,type){
+  const n=normAr(name).trim(); if(!n) return null;
+  const list=S.parties.filter(p=>!type||p.type===type);
+  return list.find(p=>normAr(p.name)===n)||list.find(p=>normAr(p.name).includes(n)||n.includes(normAr(p.name)))||null;
+}
+function partiesWithBalance(type,min){
+  return S.parties.filter(p=>p.type===type).map(p=>({name:p.name,phone:p.phone||"",balance:partyBal(p.id),lastInvoice:(S.invoices.filter(i=>i.partyId===p.id&&live(i)&&i.type!=="quote").map(i=>i.date).sort().pop())||null}))
+    .filter(x=>x.balance>=(+min||0.01)).sort((a,b)=>b.balance-a.balance).slice(0,40);
+}
+function reportData(from,to){
+  const p=pnl(from,to); const top={};
+  for(const inv of S.invoices) if(live(inv)&&inv.type==="sale"&&inv.date>=from&&inv.date<=to) for(const l of inv.lines||[]){const k=l.name;top[k]=top[k]||{qty:0,sales:0,profit:0};top[k].qty+=+l.qty||0;top[k].sales+=(+l.qty||0)*(+l.price||0);top[k].profit+=(+l.qty||0)*((+l.price||0)-(+l.cost||0))}
+  const cnt=S.invoices.filter(i=>live(i)&&i.type==="sale"&&i.date>=from&&i.date<=to).length;
+  return {from,to,salesInvoices:cnt,sales:p.sales,costOfGoods:p.cogs,grossProfit:p.gross,expenses:p.exp,otherIncome:p.inc,netProfit:p.net,expensesByCategory:p.byCat,
+    topProducts:Object.entries(top).sort((a,b)=>b[1].sales-a[1].sales).slice(0,10).map(([n,o])=>({name:n,qty:o.qty,sales:r2(o.sales),profit:r2(o.profit)})),
+    note:p.cogs===0&&p.sales>0?"سعر الكلفة مش معبّى لكتير منتجات، فالربح ممكن يطلع أعلى من الحقيقي":undefined};
+}
+function invoicesList(from,to,type,partyName){
+  const pid=partyName?(findParty(partyName)||{}).id:null;
+  return S.invoices.filter(i=>(!type||i.type===type)&&(!from||i.date>=from)&&(!to||i.date<=to)&&(!partyName||i.partyId===pid))
+    .sort((a,b)=>b.date.localeCompare(a.date)).slice(0,40)
+    .map(i=>({no:i.no,date:i.date,type:i.type,party:(partyById(i.partyId)||{}).name||"نقدي",total:invTotal(i),paid:+i.paid||0,status:i.status==="cancelled"?"ملغاة":"",items:(i.lines||[]).map(l=>`${l.qty}× ${l.name}`).join("، ")}));
+}
+function lowStock(){ return S.products.filter(p=>(+p.minQty||0)>0&&stock(p.id)<=(+p.minQty||0)).map(p=>({name:p.nameAr,stock:stock(p.id),min:+p.minQty})); }
+
+const AI_TOOLS=[
+ {name:"search_products",description:"يدوّر بكتالوج المنتجات بالاسم أو النوع أو المقاس (عربي أو إنجليزي). بيرجّع لحد 12 منتج مع الكود، الأسعار، المقاسات وأسعارها، والكمية الموجودة. استعملو قبل ما تذكر أي منتج أو سعر.",
+  inputSchema:{type:"object",properties:{query:{type:"string",description:"كلمات البحث، مثلا: براد طاولة 140"}},required:["query"]},
+  execute:(i)=>{AI.setStatus("عم دوّر بالمنتجات: "+String(i.query||""));return searchProducts(String(i.query||""))}},
+ {name:"party_balances",description:"بيرجّع الزباين (customer) أو الموردين (supplier) يلي رصيدن أكبر من حد معيّن، مع آخر فاتورة. الرصيد الموجب للزبون = دين عليه لإلنا؛ للمورد = علينا إلو.",
+  inputSchema:{type:"object",properties:{type:{type:"string",enum:["customer","supplier"]},min:{type:"number",description:"أقل رصيد بالدولار، افتراضي 0.01"}},required:["type"]},
+  execute:(i)=>{AI.setStatus("عم شوف الأرصدة");return partiesWithBalance(i.type==="supplier"?"supplier":"customer",+i.min||0.01)}},
+ {name:"profit_report",description:"تقرير أرباح وخسائر بين تاريخين (YYYY-MM-DD): المبيعات، الكلفة، الربح الإجمالي، المصاريف حسب البند، صافي الربح، وأكتر 10 منتجات مبيعة.",
+  inputSchema:{type:"object",properties:{from:{type:"string"},to:{type:"string"}},required:["from","to"]},
+  execute:(i)=>{AI.setStatus("عم احسب التقرير");return reportData(String(i.from),String(i.to))}},
+ {name:"list_invoices",description:"لائحة فواتير (sale بيع، purchase شراء، quote عرض سعر) بفترة معيّنة أو لزبون معيّن، لحد 40 فاتورة.",
+  inputSchema:{type:"object",properties:{from:{type:"string"},to:{type:"string"},type:{type:"string",enum:["sale","purchase","quote"]},party:{type:"string"}}},
+  execute:(i)=>{AI.setStatus("عم جيب الفواتير");return invoicesList(i.from?String(i.from):"",i.to?String(i.to):"",i.type?String(i.type):"",i.party?String(i.party):"")}},
+ {name:"cash_and_stock",description:"رصيد الصندوق هلق، والمنتجات يلي قرّبت تخلص.",
+  execute:()=>({cash:cashBalance(today()),lowStock:lowStock()})},
+ {name:"prepare_invoice",description:"بيحضّر مسودة فاتورة (ما بتنحفظ) وبيفتحها للمستخدم ليراجعها ويحفظها بنفسو. لازم تكون عملت search_products قبل وتستعمل الكود الصحيح. إذا المنتج إلو مقاسات، حط size بنفس اسم المقاس. price اختياري (إذا ما انذكر بينحط سعر المقاس). إذا ما في منتج مطابق بالكتالوج، استعمل name بدل code (خدمة أو منتج مش موجود).",
+  inputSchema:{type:"object",properties:{type:{type:"string",enum:["sale","purchase","quote"]},party:{type:"string",description:"اسم الزبون أو المورد"},
+    lines:{type:"array",items:{type:"object",properties:{code:{type:"string"},name:{type:"string"},size:{type:"string"},qty:{type:"number"},price:{type:"number"}}}},
+    paid:{type:"number"},discount:{type:"number"},notes:{type:"string"}},required:["type","lines"]},
+  execute:(i)=>buildDraft(i)}
+];
+function buildDraft(i){
+  const type=["sale","purchase","quote"].includes(i.type)?i.type:"sale"; const isPur=type==="purchase";
+  const party=i.party?findParty(String(i.party),isPur?"supplier":"customer"):null;
+  const lines=[]; const issues=[];
+  for(const l of (Array.isArray(i.lines)?i.lines:[])){
+    const p=l.code?S.products.find(x=>x.code===String(l.code)||x.id===String(l.code)):null;
+    const qty=+l.qty||1;
+    if(p){ let vi, v; if((p.variants||[]).length){ const sz=normAr(l.size||""); vi=p.variants.findIndex(x=>normAr(x.label)===sz); if(vi<0&&sz) vi=p.variants.findIndex(x=>normAr(x.label).includes(sz)||sz.includes(normAr(x.label))); if(vi<0){vi=0; if(l.size) issues.push(`ما لقيت مقاس "${l.size}" لـ ${p.nameAr}، حطيت أول مقاس`);} v=p.variants[vi]; }
+      const def=isPur?(+p.cost||0):(v?+v.price:(+p.price||0));
+      lines.push({pid:p.id,base:p.nameAr,name:v?p.nameAr+" — "+v.label:p.nameAr,vi,qty,price:l.price!=null&&!isNaN(+l.price)?+l.price:def,cost:+p.cost||0}); }
+    else { lines.push({pid:"",name:String(l.name||l.code||"بند"),qty,price:+l.price||0,cost:0}); if(l.code) issues.push(`الكود ${l.code} مش موجود، حطيتو كسطر حر`); }
+  }
+  if(!lines.length) throw new Error("ما في أسطر بالفاتورة");
+  const total=r2(lines.reduce((a,l)=>a+l.qty*l.price,0)-(+i.discount||0));
+  AI.draft={type,partyId:party?party.id:"",partyName:i.party?String(i.party):"",newParty:!!(i.party&&!party),lines,paid:Math.min(+i.paid||0,total),discount:+i.discount||0,notes:String(i.notes||"")};
+  AI.setStatus("حضّرت مسودة الفاتورة");
+  return {ok:true,total,party:party?party.name:(i.party?`"${i.party}" مش موجود بالزباين، المستخدم لازم يزيدو`:"زبون نقدي"),lines:lines.map(l=>`${l.qty}× ${l.name} @ $${l.price}`),issues};
+}
+function aiRules(){
+  const cats=[...new Set(S.products.map(p=>p.cat).filter(Boolean))].join("، ");
+  return `إنت المساعد المحاسبي لشركة ${S.settings.companyAr||"ماضي"} (${S.settings.company||"MADI Kitchen Equipment"}) بلبنان: معدات مطابخ ومطاعم، تركيب، صيانة، وبيع جديد ومستعمل.
+اليوم ${today()}. سعر صرف الدولار ${fmt(rate())} ل.ل. كل الحسابات بالدولار.
+فئات المنتجات: ${cats}.
+عدد المنتجات ${S.products.length}، الزباين ${S.parties.filter(p=>p.type==="customer").length}، الموردين ${S.parties.filter(p=>p.type==="supplier").length}، الفواتير ${S.invoices.length}.
+
+قواعد:
+- احكي باللهجة اللبنانية، جمل قصيرة وواضحة. استعمل أرقام إنجليزية للأسعار ($).
+- كل رقم أو سعر أو اسم منتج لازم يجي من الأدوات. ما تخترع ولا رقم. إذا الأداة ما رجّعت شي، قول هيك.
+- أسعار المنتجات هي أسعار الكتالوج (أغلبها من كتالوج العبدالله). إذا سعر الكلفة صفر، نبّه إنو الربح تقريبي.
+- لطلب فاتورة أو عرض سعر: دوّر على كل منتج بـ search_products، اختار الأقرب والمقاس المطلوب، وبعدين prepare_invoice. "الباقي دين" يعني paid أقل من المجموع. بعد ما تحضّرها، قول للمستخدم بسطرين شو حطيت، وإنها مفتوحة قدامو ليراجعها ويكبس حفظ. ما تقول إنها انحفظت.
+- إذا في أكتر من منتج ممكن يطابق وما في طريقة تعرف، اسأل سؤال قصير بدل ما تخمّن.
+- لأسئلة الزباين: اقترح 2-4 منتجات من الكتالوج بس، مع المقاس والسعر وليش بتناسب، وبعدين اكتب رسالة واتساب قصيرة ولطيفة جاهزة للنسخ بين سطرين ---.
+- للأسئلة عن الأرقام: جاوب مباشرة بالرقم، وبعدين تفصيل صغير إذا لازم.
+- ما فيك تحفظ أو تحذف شي. بس تحضّر مسودة فاتورة.`;
+}
+
+// ---------- AI: drawing tool + server call ----------
+const SKETCH_SCHEMA={type:"object",properties:{
+  kind:{type:"string",enum:["table","cabinet","hood","wall_shelf","layout"],description:"table = طاولة أو مجلى ستانلس (مع أو بلا جران)، cabinet = خزانة بأبواب، hood = شفاط، wall_shelf = رف حيط، layout = مخطط مطبخ من فوق لأي شي تاني"},
+  title:{type:"string",description:"عنوان قصير بالعربي، مثلا: طاولة ستانلس 300 مع جرن"},
+  customer:{type:"string"},
+  length:{type:"number",description:"الطول بالسنتيمتر (3 متر = 300)"},
+  depth:{type:"number",description:"العرض أو العمق من قدّام لورا بالسنتيمتر"},
+  height:{type:"number",description:"الارتفاع بالسنتيمتر. الطاولات عادة 85-90 إذا ما انذكر"},
+  backsplash:{type:"number",description:"ارتفاع الظهر بالسنتيمتر، 0 إذا بلا ظهر. افتراضي 10 للمجالي"},
+  undershelf:{type:"integer",description:"عدد الرفوف تحت (أو عدد رفوف رف الحيط)"},
+  legs:{type:"integer",description:"عدد الإجرين. 4 للأقصر من 2 متر، 6 للأطول"},
+  doors:{type:"integer",description:"عدد الأبواب للخزانة"},
+  sinks:{type:"array",items:{type:"object",properties:{width:{type:"number",description:"طول الجرن على طول الطاولة"},depth:{type:"number",description:"عرض الجرن من قدّام لورا"},bowlDepth:{type:"number",description:"عمق الجرن لتحت، افتراضي 30"},x:{type:"number",description:"بعد الجرن عن طرف الطاولة الشمال. اتركه إذا الزبون ما حدد"}},required:["width","depth"]}},
+  parts:{type:"array",description:"للـ layout بس: قطع من فوق. x,y من الزاوية الشمال الورا",items:{type:"object",properties:{label:{type:"string"},x:{type:"number"},y:{type:"number"},w:{type:"number"},d:{type:"number"},shape:{type:"string",enum:["rect","circle"]}},required:["label","x","y","w","d"]}},
+  material:{type:"string",description:"افتراضي: ستانلس ستيل 304"},
+  notes:{type:"array",items:{type:"string"},description:"ملاحظات قصيرة بالعربي بتنطبع عالرسمة (حنفية، فتحة تصريف، عجلات...)"}
+},required:["kind","title","length","depth"]};
+AI_TOOLS.push({name:"draw_sketch",description:"بيعمل رسمة تقريبية بالمقاسات (منظر من فوق ومنظر من قدّام) لطاولة، مجلى، خزانة، شفاط، رف، أو مخطط مطبخ، لتنبعت للزبون صورة. استعملها كل ما حدا طلب رسمة أو وصف قطعة بمقاسات. حوّل المتر لسنتيمتر.",
+  inputSchema:SKETCH_SCHEMA, execute:(i)=>{ AI.sketch=skNorm(i); AI.setStatus("عم ارسم"); return {ok:true,shown_to_user:true,length:AI.sketch.length,depth:AI.sketch.depth,sinks:AI.sketch.sinks.map(k=>`${k.width}×${k.depth} على بعد ${k.x} من الشمال`)}; }});
+const toolDefs=list=>list.map(t=>({name:t.name,description:t.description,input_schema:t.inputSchema||{type:"object",properties:{}}}));
+function aiErrMsg(e){
+  const m=String((e&&e.message)||e||"");
+  if(m==="offline") return "المساعد بدو إنترنت. جرّب لما يرجع النت.";
+  if(m==="no_backend") return "المساعد بيشتغل بس لما التطبيق يكون موصول بـ Supabase.";
+  if(m==="no_key") return "لازم تحط مفتاح Anthropic بـ Supabase أول (شوف ملف AI-SETUP بالـ GitHub).";
+  if(m==="no_function") return "لازم تنشر دالة المساعد (ai) على Supabase أول.";
+  if(m==="not_signed_in") return "لازم تعمل تسجيل دخول من جديد.";
+  if(/credit|billing|balance/i.test(m)) return "الرصيد بحساب Anthropic خلص. اشحن من console.anthropic.com.";
+  if(/authentication|api.key|x-api-key/i.test(m)) return "مفتاح Anthropic غلط. حطّو من جديد بـ Supabase.";
+  if(/overloaded|rate/i.test(m)) return "الخدمة مضغوطة هلق. جرّب بعد دقيقة.";
+  if(m==="aborted") return "";
+  return "صار خطأ بالمساعد: "+m.slice(0,140);
+}
+async function aiCall(body){
+  if(!navigator.onLine) throw new Error("offline");
+  if(!Store.sb) throw new Error("no_backend");
+  const {data,error}=await Store.sb.functions.invoke("ai",{body});
+  if(error){ let info=null; try{ info=await error.context.json(); }catch(_){}
+    const st=error.context&&error.context.status;
+    if(st===404&&!(info&&info.error)) throw new Error("no_function");
+    if(info&&info.error) throw new Error(typeof info.error==="string"?info.error:(info.error.message||info.error.type||"error"));
+    throw new Error(error.message||"error"); }
+  if(data&&data.type==="error") throw new Error((data.error&&data.error.message)||"error");
+  return data;
+}
+// runs the tool loop locally: the model asks for a tool, the app runs it on its own data and sends the result back
+async function aiRun(system,history,tools,opts){
+  opts=opts||{}; const msgs=history.slice(); let text="";
+  for(let step=0;step<10;step++){
+    if(AI.cancel) throw new Error("aborted");
+    const res=await aiCall({system,messages:msgs,tools:tools?toolDefs(tools):undefined,tool_choice:opts.tool_choice,max_tokens:opts.max_tokens||2500});
+    const blocks=res.content||[]; msgs.push({role:"assistant",content:blocks});
+    const t=blocks.filter(b=>b.type==="text").map(b=>b.text).join("\n").trim(); if(t) text=t;
+    const uses=blocks.filter(b=>b.type==="tool_use");
+    if(res.stop_reason!=="tool_use"||!uses.length) break;
+    const results=[];
+    for(const u of uses){ const tool=(tools||[]).find(x=>x.name===u.name); let out, err=false;
+      try{ out=tool?await tool.execute(u.input||{}):{error:"unknown tool"}; }catch(e){ out={error:String(e.message||e)}; err=true; }
+      results.push({type:"tool_result",tool_use_id:u.id,content:JSON.stringify(out).slice(0,30000),is_error:err||undefined}); }
+    if(opts.stopAfterTool) return {text,msgs};
+    msgs.push({role:"user",content:results});
+  }
+  return {text,msgs};
+}
+async function aiSketch(desc){
+  AI.sketch=null; AI.cancel=false;
+  const tool=AI_TOOLS.find(t=>t.name==="draw_sketch");
+  await aiRun(`إنت رسّام فني بشركة ${S.settings.companyAr||"ماضي"} لمعدات المطابخ الستانلس بلبنان. حوّل وصف الزبون لمقاسات بالسنتيمتر واستعمل draw_sketch. إذا شي مش محدد، استعمل المقاسات المعتادة بالمطابخ التجارية (ارتفاع 90، ظهر 10، رف تحت واحد، عمق جرن 30).`,
+    [{role:"user",content:desc}],[tool],{tool_choice:{type:"tool",name:"draw_sketch"},stopAfterTool:true,max_tokens:1500});
+  if(!AI.sketch) throw new Error("ما طلعت رسمة");
+  return AI.sketch;
+}
+
+// ---------- AI ASSISTANT VIEW ----------
+AI.setStatus=s=>{AI.status=s;const el=$("#aistatus");if(el)el.textContent=s;};
+function aiRules2(){ return aiRules()+`
+- لطلب رسمة (طاولة، مجلى، جرن، خزانة، شفاط، رف، مخطط): استعمل draw_sketch بالسنتيمتر. الرسمة بتطلع للمستخدم لحالها، إنت بس قول بسطر شو رسمت وإذا في شي افترضتو (متل الارتفاع).
+- إذا طلب عرض سعر مع الرسمة، حضّر كمان prepare_invoice من نوع quote.`; }
+function vAI(){
+  const chips=[["ارسملي طاولة 3 متر ب 80 عرض، فيها جرن 50 ب 40، ظهر 10 ورف تحت","رسمة مجلى"],["فاتورة لأبو علي، براد طاولة 140 وغريل 75، دفع 500 والباقي دين","فاتورة من جملة"],["مين عليه ديون أكتر من 1000$؟","مين عليه ديون"],["قديش ربحنا هالشهر؟ وشو أكتر شي انباع؟","أرباح الشهر"],["زبون عندو محل حلويات صغير بدو براد كيك، شو بتنصحو؟ واكتبلي رسالة واتساب","سؤال زبون"]];
+  const warn=!Store.sb?`<div class="banner">المساعد بدو التطبيق يكون موصول بـ Supabase.</div>`:!navigator.onLine?`<div class="banner">ما في إنترنت. المساعد بيرجع يشتغل لما يرجع النت.</div>`:"";
+  return `<div class="head"><div><h1>المساعد الذكي</h1><p class="sub">اكتب طلبك بالعربي: رسمة، فاتورة، سؤال عن الحسابات، أو سؤال زبون. ما بيحفظ شي إلا بعد ما توافق.</p></div>
+   <div class="row"><button class="btn" id="aisum" ${AI.busy?"disabled":""}>ملخص اليوم</button><button class="btn sm" id="ainew" ${AI.busy||!AI.msgs.length?"disabled":""}>محادثة جديدة</button></div></div>${warn}
+  <div class="card" style="display:flex;flex-direction:column;min-height:420px">
+   <div id="aimsgs" style="flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:64vh">
+    ${AI.msgs.length?AI.msgs.map(aiBubble).join(""):`<div class="empty" style="padding:24px 8px"><b>جرّب واحد من هول</b><div class="row" style="justify-content:center;margin-top:10px">${chips.map(([q,l])=>`<button class="btn sm" data-aiq="${esc(q)}">${l}</button>`).join("")}</div></div>`}
+    ${AI.busy?`<div class="muted" id="aistatus" style="font-size:13px">${esc(AI.status||"عم فكّر…")}</div>`:""}
+   </div>
+   <form id="aiform" style="display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)">
+    <textarea id="aiin" rows="2" placeholder="مثلا: ارسملي مجلى جرنين 2 متر ب 70، وعملي عرض سعر لمطعم الشيف" style="flex:1;min-height:44px" ${AI.busy?"disabled":""}></textarea>
+    ${AI.busy?`<button class="btn" type="button" id="aistop">وقّف</button>`:`<button class="btn pri" type="submit">إرسال</button>`}
+   </form></div>`;
+}
+const waPart=t=>{const m=String(t||"").match(/---\s*\n([\s\S]+?)\n\s*---/);return m?m[1].trim():""};
+function aiBubble(m,i){
+  const me=m.role==="user";
+  return `<div style="align-self:${me?"flex-start":"flex-end"};max-width:min(720px,94%);background:${me?"var(--accent-soft)":"var(--sunk)"};border-radius:10px;padding:10px 14px;line-height:1.7"><div style="white-space:pre-wrap">${esc(m.text)}</div>
+   ${m.sketch?`<div class="sk-prev" style="margin-top:8px;background:#fff;border-radius:8px;overflow:hidden">${sketchSVG(m.sketch)}</div><div class="row" style="margin-top:6px"><button class="btn pri sm" data-aiskshare="${i}">شارك الرسمة</button><button class="btn sm" data-aiskdl="${i}">نزّل PNG</button><button class="btn sm" data-aiskedit="${i}">عدّل المقاسات</button></div>`:""}
+   ${m.draft?`<div style="margin-top:8px"><button class="btn pri sm" data-aidraft="${i}">افتح الفاتورة لراجعها</button></div>`:""}
+   ${!me&&m.text?`<div class="row" style="margin-top:6px"><button class="btn sm" data-aicopy="${i}">نسخ</button>${waPart(m.text)?`<button class="btn sm" data-aiwa="${i}">ابعت واتساب</button>`:""}</div>`:""}</div>`;
+}
+async function aiSend(text,isSummary){
+  if(AI.busy||!text.trim()) return;
+  AI.busy=true; AI.cancel=false; AI.status="عم فكّر…"; AI.draft=null; AI.sketch=null;
+  AI.msgs.push({role:"user",text}); const idx=AI.msgs.push({role:"assistant",text:""})-1;
+  render(); scrollAI();
+  try{
+    let res;
+    if(isSummary) res=await aiRun(aiSummaryPrompt(),[{role:"user",content:"ملخص اليوم"}],null,{max_tokens:1200});
+    else { const hist=[...AI.turns,{role:"user",content:text}]; res=await aiRun(aiRules2(),hist,AI_TOOLS);
+      AI.turns.push({role:"user",content:text},{role:"assistant",content:res.text||"تم."}); if(AI.turns.length>16) AI.turns=AI.turns.slice(-16); }
+    AI.msgs[idx].text=res.text||(AI.sketch?"هيدي الرسمة:":"");
+    if(AI.draft) AI.msgs[idx].draft=AI.draft;
+    if(AI.sketch) AI.msgs[idx].sketch=AI.sketch;
+  }catch(e){ const m=aiErrMsg(e); if(m) AI.msgs[idx].text=m; else AI.msgs.splice(idx,1); }
+  AI.busy=false; AI.status=""; render(); scrollAI();
+  if(AI.msgs[idx]&&AI.msgs[idx].draft&&!AI.msgs[idx].sketch) openInvoice(null,AI.msgs[idx].draft.type,AI.msgs[idx].draft);
+}
+function scrollAI(){const el=$("#aimsgs");if(el)el.scrollTop=el.scrollHeight}
+function aiSummaryPrompt(){
+  const t=today(); const sales=S.invoices.filter(i=>live(i)&&i.type==="sale"&&i.date===t);
+  const rec=S.vouchers.filter(v=>v.date===t);
+  const data={date:t,salesToday:sales.map(i=>({no:i.no,party:(partyById(i.partyId)||{}).name||"نقدي",total:invTotal(i),paid:+i.paid||0,items:(i.lines||[]).map(l=>`${l.qty}× ${l.name}`).join("، ")})),
+    cashMovesToday:rec.map(v=>({kind:v.kind,usd:v.usd,party:(partyById(v.partyId)||{}).name,category:v.category})),cashBalance:cashBalance(t),
+    month:reportData(monthStart(),t),topDebtors:partiesWithBalance("customer",0.01).slice(0,8),weOwe:partiesWithBalance("supplier",0.01).slice(0,5),lowStock:lowStock()};
+  return aiRules()+`\n\nاكتب ملخص اليوم للمدير بـ 6 إلى 10 أسطر قصيرة: شو انباع اليوم، الصندوق، أرباح الشهر لهلق، مين لازم نلاحق بالدفع (الأكبر أول)، ولمين علينا، وشو لازم ينطلب للمخزون. إذا ما في حركة اليوم قولها بصراحة. خلّص بخطوة وحدة مقترحة لبكرا.\n\nالبيانات:\n`+JSON.stringify(data);
+}
+function bindAI(){
+  const f=$("#aiform"); if(!f) return;
+  f.onsubmit=e=>{e.preventDefault();aiSend($("#aiin").value)};
+  $("#aiin").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();aiSend($("#aiin").value)}};
+  $("#aistop")&&($("#aistop").onclick=()=>{AI.cancel=true;AI.setStatus("عم وقّف…")});
+  $("#aisum")&&($("#aisum").onclick=()=>aiSend("ملخص اليوم",true));
+  $("#ainew")&&($("#ainew").onclick=()=>{AI.msgs=[];AI.turns=[];render()});
+  document.querySelectorAll("[data-aiq]").forEach(b=>b.onclick=()=>{$("#aiin").value=b.dataset.aiq;$("#aiin").focus()});
+  document.querySelectorAll("[data-aidraft]").forEach(b=>b.onclick=()=>{const m=AI.msgs[+b.dataset.aidraft];if(m&&m.draft)openInvoice(null,m.draft.type,m.draft)});
+  document.querySelectorAll("[data-aicopy]").forEach(b=>b.onclick=async()=>{const m=AI.msgs[+b.dataset.aicopy];try{await navigator.clipboard.writeText(m.text);toast("انتسخ")}catch(e){toast("ما زبط النسخ، حدّد النص وانسخو")}});
+  document.querySelectorAll("[data-aiwa]").forEach(b=>b.onclick=()=>{const m=AI.msgs[+b.dataset.aiwa];window.open("https://wa.me/?text="+encodeURIComponent(waPart(m.text)),"_blank")});
+  document.querySelectorAll("[data-aiskshare]").forEach(b=>b.onclick=()=>sketchShare(AI.msgs[+b.dataset.aiskshare].sketch));
+  document.querySelectorAll("[data-aiskdl]").forEach(b=>b.onclick=()=>sketchDownload(AI.msgs[+b.dataset.aiskdl].sketch));
+  document.querySelectorAll("[data-aiskedit]").forEach(b=>b.onclick=()=>{SK.spec=JSON.parse(JSON.stringify(AI.msgs[+b.dataset.aiskedit].sketch));SK.id=null;go("sketch")});
+  if(!AI.busy) $("#aiin").focus();
 }
 
 // ---------- PRODUCTS ----------
@@ -682,7 +1242,7 @@ function vReports(){
   <div class="tiles"><div class="tile"><span class="k">قيمة المخزون بالكلفة</span><span class="v">${usd(invVal)}</span></div><div class="tile"><span class="k">قيمة المخزون بسعر البيع</span><span class="v">${usd(invSale)}</span><span class="s">ربح متوقع ${usd(invSale-invVal)}</span></div><div class="tile"><span class="k">رصيد الصندوق</span><span class="v">${usd(cashBalance(today()))}</span></div></div>`;
 }
 async function backup(){
-  const data={exportedAt:new Date().toISOString(),settings:S.settings,products:S.products,parties:S.parties,invoices:S.invoices,vouchers:S.vouchers};
+  const data={exportedAt:new Date().toISOString(),settings:S.settings,products:S.products,parties:S.parties,invoices:S.invoices,vouchers:S.vouchers,sketches:S.sketches};
   downloadFile(`madi-backup-${today()}.json`,JSON.stringify(data,null,1),"application/json");toast("انحفظت النسخة الاحتياطية");
 }
 
@@ -696,8 +1256,10 @@ function vSettings(){
     <label class="f"><span>اسم الشركة بالإنجليزي</span><input type="text" id="s_company" value="${esc(s.company)}" dir="ltr"></label>
     <label class="f"><span>التلفون</span><input type="tel" id="s_phone" value="${esc(s.phone)}" dir="ltr"></label>
     <label class="f"><span>العنوان</span><input type="text" id="s_address" value="${esc(s.address)}"></label>
+    <label class="f"><span>الموقع الإلكتروني</span><input type="text" id="s_website" value="${esc(s.website||"")}" dir="ltr"></label>
     <label class="f"><span>سعر صرف الدولار (ل.ل)</span><input type="number" id="s_rate" class="num" value="${s.rate}"></label>
     <label class="f"><span>رصيد الصندوق الافتتاحي $</span><input type="number" step="any" id="s_openingCash" class="num" value="${s.openingCash||0}"></label>
+    <label class="f" style="grid-column:1/-1"><span>ملاحظات وطريقة الدفع (بتطلع تحت كل فاتورة)</span><textarea id="s_invoiceNotes" placeholder="مثلا: 50% دفعة أولى و50% عند التسليم. كفالة سنة. الأسعار بالدولار.">${esc(s.invoiceNotes||"")}</textarea></label>
     <label class="f" style="grid-column:1/-1"><span>بنود المصاريف (افصل بفاصلة)</span><input type="text" id="s_cats" value="${esc((s.expenseCats||[]).join("، "))}"></label>
    </div>
    <div><button class="btn pri" id="savesettings" ${S.canWrite?"":"disabled"}>حفظ الإعدادات</button></div>
@@ -725,13 +1287,15 @@ function vSettings(){
    </ul></div>`;
 }
 async function saveSettings(){
-  const s={...S.settings}; for(const k of ["companyAr","company","phone","address"]) s[k]=$("#s_"+k).value.trim();
+  const s={...S.settings}; for(const k of ["companyAr","company","phone","address","website","invoiceNotes"]) s[k]=$("#s_"+k).value.trim();
   s.rate=+$("#s_rate").value||89500; s.openingCash=+$("#s_openingCash").value||0; s.expenseCats=$("#s_cats").value.split(/[،,]/).map(x=>x.trim()).filter(Boolean);
   if(await saveSettingsDoc(s)) toast("انحفظت الإعدادات");
 }
 
 // ---------- bind ----------
 function bindView(){
+  bindAI(); bindSketch();
+  $("#homeai")&&($("#homeai").onsubmit=e=>{e.preventDefault();const v=$("#homeaiin").value.trim();if(!v)return;go("ai");aiSend(v)});
   const q=$("#q"); if(q){ q.oninput=()=>{ui.q=q.value;const pos=q.selectionStart;render();const n=$("#q");n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}} }
   document.querySelectorAll("[data-filter]").forEach(b=>b.onclick=()=>{ui.filter=b.dataset.filter;render()});
   document.querySelectorAll("[data-ptype]").forEach(b=>b.onclick=()=>{ui.partyType=b.dataset.ptype;ui.filter="all";render()});
@@ -824,6 +1388,7 @@ render();
 if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 let installEvt=null; window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;softRender()});
 
+window.MADI={sketchPNG,sketchSVG,invoicePages,pagesToPDF,S,importCatalog,Store,aiSend,AI};
 })();
 </script>
 </body>
